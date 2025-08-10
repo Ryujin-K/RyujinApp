@@ -9,8 +9,8 @@ from core.providers.domain.provider_repository import ProviderRepository
 data_path = user_data_path('pyneko')
 
 def base_path():
-    if os.environ.get('PYNEKOENV') != 'dev':
-        return data_path / 'pyneko' / 'src'
+    if os.environ.get('RYUJINAPPENV') != 'dev':
+        return data_path / 'RyujinApp' / 'src'
 
     return Path('.') / 'src'
 

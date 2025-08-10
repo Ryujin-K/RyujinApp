@@ -13,8 +13,8 @@ jobs:
       fail-fast: false
       matrix:
         config:
-          - os: ubuntu-22.04
-          - os: windows-2019
+          - os: ubuntu-latest
+          - os: windows-latest
 
     steps:
       - name: Checkout code
@@ -37,11 +37,11 @@ jobs:
         run: poetry run build
 
       - name: Rename build app for Windows
-        if: ${{ matrix.config.os == 'windows-2019' }}
+        if: ${{ matrix.config.os == 'windows-latest' }}
         run: mv ./dist/__init__.exe ./dist/RyujinApp.exe
 
       - name: Rename build app for Ubuntu
-        if: ${{ matrix.config.os == 'ubuntu-22.04' }}
+        if: ${{ matrix.config.os == 'ubuntu-latest' }}
         run: mv ./dist/__init__ ./dist/RyujinApp
 
       - name: Move build directory

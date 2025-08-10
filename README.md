@@ -5,7 +5,7 @@
   </a>
 </div>
 
-A cross-platform manga downloader for **Linux, Windows, and MacOS**, using Pyneko's (https://github.com/Lyem/Pyneko) base code, that´s  based on [HakuNeko](https://github.com/manga-download/hakuneko). It incorporates code from **SmartStitch** for advanced image slicing, ensuring fast and seamless downloads.
+A cross-platform manga downloader for **Linux, Windows, and MacOS**, using [Pyneko]'s (https://github.com/Lyem/Pyneko) base code, that´s  based on [HakuNeko](https://github.com/manga-download/hakuneko). It incorporates code from **SmartStitch** for advanced image slicing, ensuring fast and seamless downloads.
 
 ## Dependencies  
 
@@ -35,4 +35,5 @@ poetry run new    # Create a new provider
 
 ## Credits
 
+This project uses code from the [Pyneko](https://github.com/MechTechnology/SmartStitch) for GUI and scrapping.
 This project uses code from the [SmartStitch](https://github.com/MechTechnology/SmartStitch) for image slicing.

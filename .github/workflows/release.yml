@@ -65,11 +65,11 @@ jobs:
         id: create_release
         uses: softprops/action-gh-release@v1
         env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GITHUB_TOKEN: ${{ secrets.PAT }}
         with:
           tag_name: ${{ github.ref }}
           draft: false
-          prerelease: false
+          prerelease: true
           files: |
             ryujinapp-pyinstaller-artifact-windows-2019/RyujinApp.exe
             ryujinapp-pyinstaller-artifact-ubuntu-22.04/RyujinApp

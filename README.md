@@ -35,5 +35,5 @@ poetry run new    # Create a new provider
 
 ## Credits
 
-This project uses code from the [Pyneko](https://github.com/MechTechnology/SmartStitch) for GUI and scrapping.
-This project uses code from the [SmartStitch](https://github.com/MechTechnology/SmartStitch) for image slicing.
+- This project uses code from the [Pyneko](https://github.com/MechTechnology/SmartStitch) for GUI and scrapping.
+- This project uses code from the [SmartStitch](https://github.com/MechTechnology/SmartStitch) for image slicing.

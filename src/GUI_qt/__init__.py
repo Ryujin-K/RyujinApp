@@ -174,6 +174,12 @@ class MangaDownloaderApp:
         self.assets = os.path.join(self.current_dir, 'assets')
 
         self.app = QApplication(sys.argv)
+
+        # Carrega o arquivo de estilo
+        style_path = os.path.join(self.assets, 'styles.qss')
+        with open(style_path, "r") as f:
+            self.app.setStyleSheet(f.read())
+
         self.window = uic.loadUi(os.path.join(self.assets, 'main.ui'))
         self.window.show()
 

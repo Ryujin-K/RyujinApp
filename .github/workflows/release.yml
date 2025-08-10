@@ -70,6 +70,7 @@ jobs:
           tag_name: ${{ github.ref }}
           draft: false
           prerelease: true
+          overwrite: true
           files: |
             ryujinapp-pyinstaller-artifact-windows-latest/RyujinApp.exe
             ryujinapp-pyinstaller-artifact-ubuntu-latest/RyujinApp

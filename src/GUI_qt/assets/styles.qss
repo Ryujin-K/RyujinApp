@@ -1,0 +1,82 @@
+/* TEMA DARK COM BOTÕES ROXOS - styles.qss */
+
+/* ---------- FUNDO E FONTE ---------- */
+QMainWindow, QDialog, QWidget {
+    background-color: #121212;
+    color: #e0e0e0;
+    font-family: 'Segoe UI';
+    font-size: 12px;
+}
+
+/* ---------- BOTÕES PRINCIPAIS ---------- */
+QPushButton {
+    background-color: #7e57c2;  /* Roxo */
+    color: white;
+    border: none;
+    border-radius: 6px;  /* Cantos arredondados */
+    padding: 8px 16px;
+    font-weight: bold;
+    min-width: 80px;
+}
+
+QPushButton:hover {
+    background-color: #9575cd;  /* Roxo mais claro */
+}
+
+QPushButton:pressed {
+    background-color: #673ab7;  /* Roxo mais escuro */
+}
+
+QPushButton:disabled {
+    background-color: #424242;
+    color: #757575;
+}
+
+/* ---------- BARRA DE PROGRESSO ---------- */
+QProgressBar {
+    border: 1px solid #424242;
+    border-radius: 4px;
+    background: #2d2d2d;
+    text-align: center;
+}
+
+QProgressBar::chunk {
+    background-color: #7e57c2;  /* Roxo */
+    border-radius: 4px;
+}
+
+/* ---------- CAIXAS DE TEXTO ---------- */
+QLineEdit, QTextEdit, QPlainTextEdit {
+    background-color: #1e1e1e;
+    color: white;
+    border: 1px solid #424242;
+    border-radius: 4px;
+    padding: 5px;
+}
+
+/* ---------- GROUPBOX ---------- */
+QGroupBox {
+    border: 1px solid #424242;
+    border-radius: 6px;
+    margin-top: 15px;
+    padding-top: 20px;
+    color: #bb86fc;  /* Roxo claro */
+    font-weight: bold;
+}
+
+/* ---------- SCROLLBAR ---------- */
+QScrollBar:vertical {
+    background: #1e1e1e;
+    width: 12px;
+}
+
+QScrollBar::handle:vertical {
+    background: #424242;
+    border-radius: 6px;
+}
+
+/* ---------- CHECKBOX & RADIOBUTTON ---------- */
+QCheckBox::indicator:checked, QRadioButton::indicator:checked {
+    background-color: #7e57c2;  /* Roxo */
+    border: 1px solid #7e57c2;
+}

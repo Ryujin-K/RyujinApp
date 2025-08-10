@@ -71,5 +71,5 @@ jobs:
           draft: false
           prerelease: false
           files: |
-            ryujinapp-pyinstaller-artifact-windows-2019/RyujinApp.exe
-            ryujinapp-pyinstaller-artifact-ubuntu-22.04/RyujinApp
+            ryujinapp-pyinstaller-artifact-windows-latest/RyujinApp.exe
+            ryujinapp-pyinstaller-artifact-ubuntu-latest/RyujinApp

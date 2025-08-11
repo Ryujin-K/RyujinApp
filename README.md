@@ -1,7 +1,7 @@
 # RyujinApp  
 <div align="center">
   <a href="https://github.com/Ryujin-K/RyujinApp">
-    <img width="450" src="https://imgur.com/a/PMvErEa" />
+    <img width="450" src="https://imgur.com/a/PMvErEa.png" />
   </a>
 </div>
 

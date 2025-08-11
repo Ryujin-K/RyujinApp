@@ -18,12 +18,26 @@ def base():
 current_dir = os.path.join(base(), 'GUI_qt')
 assets = os.path.join(current_dir, 'assets')
 
+def load_stylesheet():
+    if getattr(sys, 'frozen', False) and hasattr(sys, '_MEIPASS'):
+        base_path = Path(sys._MEIPASS)
+    else:
+        base_path = Path(__file__).parent  # Ajuste conforme sua pasta
+        
+    style_path = base_path / "assets" / "styles.qss"  # Caminho para seu arquivo
+    with open(style_path, "r", encoding="utf-8") as f:
+        return f.read()
+
 class NewVersion():
     def __init__(self):
         self.msg_box = QMessageBox()
+        self.stylesheet = load_stylesheet()
         self.show_message_box()
 
     def show_message_box(self):
+
+        self.msg_box.setStyleSheet(self.stylesheet)
+
         translations = {}
         with open(os.path.join(assets, 'translations.json'), 'r', encoding='utf-8') as file:
             translations = json.load(file)

@@ -57,7 +57,7 @@ class MediocretoonsProvider(Base):
         for ch in chapters_json:
             chapter = Chapter(
                 id=str(ch['id']),
-                title=ch.get('nome', f"Capítulo {ch['id']}"),
+                name=ch.get('nome', f"Capítulo {ch['id']}"),
                 number=ch.get('cap_num', None),
             )
             chapters.append(chapter)

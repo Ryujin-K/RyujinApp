@@ -60,7 +60,6 @@ class MediocretoonsProvider(Base):
                 id=str(ch['id']),
                 number=str(ch.get('numero', None)),
                 name=ch.get('nome'),
-                files=[]
             )
             chapters.append(chapter)
         return chapters

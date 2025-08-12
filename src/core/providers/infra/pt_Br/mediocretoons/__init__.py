@@ -79,7 +79,7 @@ class MediocretoonsProvider(Base):
         paginas = data.get('paginas', '[]')
 
         urls = [   
-            f"https://storage.mediocretoons.com/obra/{data['obr_id']}/capitulos/{data['cap_id']}/{page.get('src', '')}"
+            f"https://storage.mediocretoons.com/obras/{data['obr_id']}/capitulos/{data['cap_id']}/{page.get('src', '')}"
             for page in paginas
             ]
 

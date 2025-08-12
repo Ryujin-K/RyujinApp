@@ -85,7 +85,10 @@ class MediocretoonsProvider(Base):
             else:
                 urls.append(f"https://storage.mediocretoons.com/obra/{data['obr_id']}/capitulos/{data['cap_id']}/{src}")
 
-        pages = Pages(
-            urls=urls,
+        pages = Pages.from_dict(
+            id=str(data['cap_id']),
+            number=str(data.get('cap_num', '')),
+            name=data.get('cap_nome', ''),
+            pages=urls,
         )
         return pages

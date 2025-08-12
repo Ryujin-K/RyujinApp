@@ -4,6 +4,7 @@ from typing import List
 from urllib.parse import urlparse
 from core.providers.domain.entities import Chapter, Pages, Manga
 from core.providers.infra.template.base import Base
+from core.download.application.use_cases import DownloadUseCase
 
 
 class MediocretoonsProvider(Base):
@@ -57,8 +58,9 @@ class MediocretoonsProvider(Base):
         for ch in chapters_json:
             chapter = Chapter(
                 id=str(ch['id']),
-                number=ch.get('numero', None),
-                name=ch.get('nome')
+                number=str(ch.get('numero', None)),
+                name=ch.get('nome'),
+                files=[]
             )
             chapters.append(chapter)
         return chapters
@@ -77,13 +79,10 @@ class MediocretoonsProvider(Base):
 
         paginas = data.get('paginas', '[]')
 
-        urls = []
-        for page in paginas:
-            src = page.get('src', '')
-            if src.startswith('http'):
-                urls.append(src)
-            else:
-                urls.append(f"https://storage.mediocretoons.com/obra/{data['obr_id']}/capitulos/{data['cap_id']}/{src}")
+        urls = [   
+            f"https://storage.mediocretoons.com/obra/{data['obr_id']}/capitulos/{data['cap_id']}/{page.get('src', '')}"
+            for page in paginas
+            ]
 
         pages = Pages(
             id=str(data['cap_id']),
@@ -91,4 +90,4 @@ class MediocretoonsProvider(Base):
             name=None,
             pages=urls,
         )
-        return pages
+        return pages(Chapter.id, Chapter.number, Chapter.name, urls)

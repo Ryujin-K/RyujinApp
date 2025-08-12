@@ -16,7 +16,7 @@ class MediocreToonsProvider(Base):
         response = Http.get(link)
         soup = BeautifulSoup(response.content, 'html.parser')
         
-        title = soup.select_one('h1.text-lg').get_text(strip=True)
+        title = soup.select_one('h1.text-lg.xs\:text-xl.sm\:text-2xl').get_text(strip=True)
         
         return Manga(link, title)
 

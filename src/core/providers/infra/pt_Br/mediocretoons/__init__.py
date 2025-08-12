@@ -1,110 +1,99 @@
-import nodriver as uc
+import requests
 from typing import List
-from bs4 import BeautifulSoup
-from core.__seedwork.infra.http import Http
-from core.providers.infra.template.base import Base
+from core.download.application.use_cases import DownloadUseCase
 from core.providers.domain.entities import Chapter, Pages, Manga
-from core.cloudflare.infra.nodriver.chrome import find_chrome_executable
+from core.providers.domain.provider_repository import ProviderRepository
+from core.providers.infra.template.base import Base
+from urllib.parse import urlparse, parse_qs
 
-class MediocreToonsProvider(Base):
+class MediocretoonsProvider(Base):
     name = 'Mediocretoons'
-    lang = 'pt-Br'
+    lang = 'pt'
     domain = ['mediocretoons.com']
     has_login = False
 
-    def __init__(self) -> None:
-        pass   
+    BASE_API = 'https://api.mediocretoons.com'
 
     def getManga(self, link: str) -> Manga:
-        """
-        Abre o site, clica no botão 'Todos' e retorna o título do mangá.
-        """
-        async def _open_and_click_todos():
-            browser = await uc.start(
-                browser_executable_path=find_chrome_executable(),
-                headless=True
-            )
-            page = await browser.get(link)
+        # extrair id da obra da URL (ex: https://mediocretoons.com/obras/295)
+        obra_id = self._extract_id(link)
+        url = f'{self.BASE_API}/obras/{obra_id}'
+        headers = {
+            "Accept": "application/json",
+            "User-Agent": "Mozilla/5.0",
+            "Referer": "https://mediocretoons.com",
+            "Origin": "https://mediocretoons.com",
+        }
+        resp = requests.get(url, headers=headers)
+        resp.raise_for_status()
+        data = resp.json()['data']
 
-            # Aguarda e clica no botão 'Todos'
-            xpath_btn_todos = "//button[.//span[text()='Todos']]"
-            await page.wait_for_selector(xpath_btn_todos, by="xpath")
-            btn_todos = await page.select(xpath_btn_todos, by="xpath")
-            if btn_todos:
-                await btn_todos[0].click()
-                await page.sleep(2)  # Esperar resultados carregarem
+        # Monta o Manga com os dados relevantes
+        manga = Manga(
+            id=str(data['id']),
+            title=data['nome'],
+            description=data.get('descricao', ''),
+            cover_url=f"https://storage.mediocretoons.com/obras/{data['id']}/capa/{data.get('imagem', '')}",
+            # você pode adicionar mais campos se seu Manga aceitar
+        )
+        return manga
 
-            html = await page.get_content()
-            browser.stop()
-            return html
+    def getChapters(self, obra_id: str) -> List[Chapter]:
+        # pega capítulos da obra via endpoint (por exemplo, /obras/{id} já retorna capítulos)
+        url = f'{self.BASE_API}/obras/{obra_id}'
+        headers = {
+            "Accept": "application/json",
+            "User-Agent": "Mozilla/5.0",
+            "Referer": "https://mediocretoons.com",
+            "Origin": "https://mediocretoons.com",
+        }
+        resp = requests.get(url, headers=headers)
+        resp.raise_for_status()
+        data = resp.json()['data']
 
-        # Executa a parte assíncrona
-        html = uc.loop().run_until_complete(_open_and_click_todos())
-        soup = BeautifulSoup(html, 'html.parser')
-
-        # Agora o título deve estar presente
-        title_tag = soup.select_one("h1.text-2xl.font-bold")
-        title = title_tag.get_text(strip=True) if title_tag else "Título não encontrado"
-
-        return Manga(link, title)
-
-
-    def getChapters(self, manga_url: str) -> List[Chapter]:
-        """
-        Retorna lista de capítulos disponíveis para o mangá.
-        """
-        response = Http.get(manga_url)
-        soup = BeautifulSoup(response.content, 'html.parser')
-
+        chapters_json = data.get('capitulos', [])
         chapters = []
-        # Seleciona todos os elementos que contêm o número do capítulo
-        chapter_elements = soup.select('div.grow.flex.gap-5 span')
-
-        for ch in chapter_elements:
-            chapter_number = ch.get_text(strip=True)
-            chapter_url = f"{manga_url}/capitulos/{chapter_number}"
-            chapters.append(Chapter(chapter_url, chapter_number, ""))
-
+        for ch in chapters_json:
+            chapter = Chapter(
+                id=str(ch['id']),
+                title=ch.get('nome', f"Capítulo {ch['id']}"),
+                number=ch.get('cap_num', None),
+                # complete com outros atributos necessários
+            )
+            chapters.append(chapter)
         return chapters
 
-    def getPages(self, ch: Chapter) -> Pages:
-        """
-        Abre o capítulo, clica no botão correspondente e retorna as páginas.
-        """
-        async def _open_and_click():
-            browser = await uc.start(
-                browser_executable_path=find_chrome_executable(),
-                headless=True
-            )
-            page = await browser.get(ch.id)
+    def getPages(self, chapter: Chapter) -> Pages:
+        # pega as páginas do capítulo por id
+        url = f'{self.BASE_API}/capitulos/{chapter.id}'
+        headers = {
+            "Accept": "application/json",
+            "User-Agent": "Mozilla/5.0",
+            "Referer": "https://mediocretoons.com",
+            "Origin": "https://mediocretoons.com",
+        }
+        resp = requests.get(url, headers=headers)
+        resp.raise_for_status()
+        data = resp.json()['data']
 
-            # Aguarda o botão pelo número do capítulo
-            xpath_btn = f"//div[contains(@class, 'cursor-pointer')]//span[text()='{ch.number}']"
-            await page.wait_for_selector(xpath_btn, by="xpath")
+        # 'cap_paginas' tem as imagens em JSON string, então vamos carregar
+        import json
+        paginas = json.loads(data.get('cap_paginas', '[]'))
 
-            # Clica no botão
-            btn = await page.select(xpath_btn, by="xpath")
-            if btn:
-                await btn[0].click()
-                await page.sleep(2)  # Esperar carregar as imagens
+        # montar a lista de URLs das imagens
+        urls = [f"https://storage.mediocretoons.com/obras/{data['obr_id']}/capitulos/{data['cap_id']}/{page['src']}" for page in paginas]
 
-            # Captura HTML final
-            html = await page.get_content()
-            browser.stop()
-            return html
+        pages = Pages(
+            urls=urls,
+            # mais campos se precisar
+        )
+        return pages
 
-        # Executa parte assíncrona
-        html = uc.loop().run_until_complete(_open_and_click())
-        soup = BeautifulSoup(html, 'html.parser')
+    def _extract_id(self, url: str) -> str:
+        # exemplo para extrair id da URL: https://mediocretoons.com/obras/295
+        path = urlparse(url).path  # ex: /obras/295
+        parts = path.strip('/').split('/')
+        if len(parts) >= 2 and parts[0] == 'obras':
+            return parts[1]
+        raise ValueError("URL inválida para extrair ID da obra")
 
-        pages = []
-        page_containers = soup.select('div[style*="background: transparent"]')
-
-        for container in page_containers:
-            img = container.select_one('img')
-            if img and img.get('src'):
-                src = img['src']
-                if not src.endswith('banner-comeco.JPG') and not src.endswith('banner-fim.JPG'):
-                    pages.append(src)
-
-        return Pages(id=ch.id, number=ch.number, name=ch.name, pages=pages)

@@ -17,7 +17,7 @@ class MediocretoonsProvider(Base):
     def getManga(self, link: str) -> Manga:
         # extrair id da obra da URL (ex: https://mediocretoons.com/obra/295)
         obra_id = self._extract_id(link)
-        url = f'{self.BASE_API}/obra/{obra_id}'
+        url = f'{self.BASE_API}/obras/{obra_id}'
         headers = {
             "Accept": "application/json",
             "User-Agent": "Mozilla/5.0",

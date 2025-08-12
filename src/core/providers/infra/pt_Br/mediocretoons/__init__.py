@@ -17,16 +17,37 @@ class MediocreToonsProvider(Base):
 
     def getManga(self, link: str) -> Manga:
         """
-        Obtém informações básicas do mangá a partir da página inicial dele.
+        Abre o site, clica no botão 'Todos' e retorna o título do mangá.
         """
-        response = Http.get(link)
-        soup = BeautifulSoup(response.content, 'html.parser')
+        async def _open_and_click_todos():
+            browser = await uc.start(
+                browser_executable_path=find_chrome_executable(),
+                headless=True
+            )
+            page = await browser.get(link)
 
-        # O título principal do mangá
+            # Aguarda e clica no botão 'Todos'
+            xpath_btn_todos = "//button[.//span[text()='Todos']]"
+            await page.wait_for_selector(xpath_btn_todos, by="xpath")
+            btn_todos = await page.select(xpath_btn_todos, by="xpath")
+            if btn_todos:
+                await btn_todos[0].click()
+                await page.sleep(2)  # Esperar resultados carregarem
+
+            html = await page.get_content()
+            browser.stop()
+            return html
+
+        # Executa a parte assíncrona
+        html = uc.loop().run_until_complete(_open_and_click_todos())
+        soup = BeautifulSoup(html, 'html.parser')
+
+        # Agora o título deve estar presente
         title_tag = soup.select_one("h1.text-2xl.font-bold")
         title = title_tag.get_text(strip=True) if title_tag else "Título não encontrado"
 
         return Manga(link, title)
+
 
     def getChapters(self, manga_url: str) -> List[Chapter]:
         """

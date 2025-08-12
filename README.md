@@ -2,6 +2,7 @@
 <div align="center">
   <a href="https://github.com/Ryujin-K/RyujinApp">
     <img width="450" src="https://i.imgur.com/RWMFT6o.png" />
+    <img width="450" src="https://i.imgur.com/EWWKqIw.png" />
   </a>
 </div>
 

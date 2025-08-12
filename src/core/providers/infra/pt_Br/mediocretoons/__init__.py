@@ -32,7 +32,7 @@ class MediocretoonsProvider(Base):
         }
         resp = requests.get(url, headers=headers)
         resp.raise_for_status()
-        data = resp.json()['data']
+        data = resp.json()
 
         manga = Manga(
             id=str(data['id']),
@@ -50,7 +50,7 @@ class MediocretoonsProvider(Base):
         }
         resp = requests.get(url, headers=headers)
         resp.raise_for_status()
-        data = resp.json()['data']
+        data = resp.json()
 
         chapters_json = data.get('capitulos', [])
         chapters = []
@@ -73,7 +73,7 @@ class MediocretoonsProvider(Base):
         }
         resp = requests.get(url, headers=headers)
         resp.raise_for_status()
-        data = resp.json()['data']
+        data = resp.json()
 
         paginas = json.loads(data.get('cap_paginas', '[]'))
 

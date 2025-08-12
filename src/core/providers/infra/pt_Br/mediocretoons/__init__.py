@@ -56,14 +56,20 @@ class MediocretoonsProvider(Base):
 
     def getPages(self, chapter: Chapter) -> Pages:
         url = f'{self.BASE_API}/capitulos/{chapter.id}'
-        headers = self._default_headers()
+        headers = {
+            "Accept": "application/json",
+            "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64)",
+            "Referer": "https://mediocretoons.com",
+            "Origin": "https://mediocretoons.com",
+        }
         resp = requests.get(url, headers=headers)
         resp.raise_for_status()
         data = resp.json()
 
         paginas = data.get('paginas', [])
+
         urls = [
-            f"{self.BASE_CDN}/{data['obr_id']}/capitulos/{data['cap_id']}/{page.get('src', '')}"
+            f"https://storage.mediocretoons.com/obras/{data['obr_id']}/capitulos/{data['cap_id']}/{page.get('src', '')}"
             for page in paginas
         ]
 
@@ -74,10 +80,4 @@ class MediocretoonsProvider(Base):
             pages=urls,
         )
 
-    def _default_headers(self):
-        return {
-            "Accept": "application/json",
-            "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64)",
-            "Referer": "https://mediocretoons.com",
-            "Origin": "https://mediocretoons.com",
-        }
+

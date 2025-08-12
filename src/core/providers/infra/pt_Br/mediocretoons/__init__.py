@@ -36,6 +36,7 @@ class MediocretoonsProvider(Base):
 
         manga = Manga(
             id=str(data['id']),
+            name=data['nome'],
         )
         return manga
 

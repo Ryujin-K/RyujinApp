@@ -1,10 +1,10 @@
 import requests
+import json
 from typing import List
-from core.download.application.use_cases import DownloadUseCase
+from urllib.parse import urlparse
 from core.providers.domain.entities import Chapter, Pages, Manga
-from core.providers.domain.provider_repository import ProviderRepository
 from core.providers.infra.template.base import Base
-from urllib.parse import urlparse, parse_qs
+
 
 class MediocretoonsProvider(Base):
     name = 'Mediocretoons'
@@ -14,13 +14,19 @@ class MediocretoonsProvider(Base):
 
     BASE_API = 'https://api.mediocretoons.com'
 
+    def _extract_id(self, url: str) -> str:
+        path = urlparse(url).path
+        parts = path.strip('/').split('/')
+        if len(parts) >= 2 and parts[0] in ['obra', 'obras']:
+            return parts[1]
+        raise ValueError("URL inválida para extrair ID da obra")
+
     def getManga(self, link: str) -> Manga:
-        # extrair id da obra da URL (ex: https://mediocretoons.com/obra/295)
         obra_id = self._extract_id(link)
         url = f'{self.BASE_API}/obras/{obra_id}'
         headers = {
             "Accept": "application/json",
-            "User-Agent": "Mozilla/5.0",
+            "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64)",
             "Referer": "https://mediocretoons.com",
             "Origin": "https://mediocretoons.com",
         }
@@ -28,7 +34,6 @@ class MediocretoonsProvider(Base):
         resp.raise_for_status()
         data = resp.json()['data']
 
-        # Monta o Manga com os dados relevantes
         manga = Manga(
             id=str(data['id']),
             title=data['nome'],
@@ -36,11 +41,10 @@ class MediocretoonsProvider(Base):
         return manga
 
     def getChapters(self, obra_id: str) -> List[Chapter]:
-        # pega capítulos da obra via endpoint (por exemplo, /obras/{id} já retorna capítulos)
         url = f'{self.BASE_API}/obras/{obra_id}'
         headers = {
             "Accept": "application/json",
-            "User-Agent": "Mozilla/5.0",
+            "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64)",
             "Referer": "https://mediocretoons.com",
             "Origin": "https://mediocretoons.com",
         }
@@ -55,17 +59,15 @@ class MediocretoonsProvider(Base):
                 id=str(ch['id']),
                 title=ch.get('nome', f"Capítulo {ch['id']}"),
                 number=ch.get('cap_num', None),
-                # complete com outros atributos necessários
             )
             chapters.append(chapter)
         return chapters
 
     def getPages(self, chapter: Chapter) -> Pages:
-        # pega as páginas do capítulo por id
         url = f'{self.BASE_API}/capitulos/{chapter.id}'
         headers = {
             "Accept": "application/json",
-            "User-Agent": "Mozilla/5.0",
+            "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64)",
             "Referer": "https://mediocretoons.com",
             "Origin": "https://mediocretoons.com",
         }
@@ -73,24 +75,17 @@ class MediocretoonsProvider(Base):
         resp.raise_for_status()
         data = resp.json()['data']
 
-        # 'cap_paginas' tem as imagens em JSON string, então vamos carregar
-        import json
         paginas = json.loads(data.get('cap_paginas', '[]'))
 
-        # montar a lista de URLs das imagens
-        urls = [f"https://storage.mediocretoons.com/obra/{data['obr_id']}/capitulos/{data['cap_id']}/{page['src']}" for page in paginas]
+        urls = []
+        for page in paginas:
+            src = page.get('src', '')
+            if src.startswith('http'):
+                urls.append(src)
+            else:
+                urls.append(f"https://storage.mediocretoons.com/obra/{data['obr_id']}/capitulos/{data['cap_id']}/{src}")
 
         pages = Pages(
             urls=urls,
-            # mais campos se precisar
         )
         return pages
-
-    def _extract_id(self, url: str) -> str:
-        # exemplo para extrair id da URL: https://mediocretoons.com/obra/295
-        path = urlparse(url).path  # ex: /obra/295
-        parts = path.strip('/').split('/')
-        if len(parts) >= 2 and parts[0] == 'obra':
-            return parts[1]
-        raise ValueError("URL inválida para extrair ID da obra")
-

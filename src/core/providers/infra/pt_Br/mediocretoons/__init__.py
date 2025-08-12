@@ -57,8 +57,8 @@ class MediocretoonsProvider(Base):
         for ch in chapters_json:
             chapter = Chapter(
                 id=str(ch['id']),
-                name=ch.get('nome', f"Capítulo {ch['id']}"),
-                number=ch.get('cap_num', None),
+                number=ch.get('numero', None),
+                name=ch.get('nome', f"Capítulo {'numero'}")
             )
             chapters.append(chapter)
         return chapters
@@ -83,9 +83,9 @@ class MediocretoonsProvider(Base):
             if src.startswith('http'):
                 urls.append(src)
             else:
-                urls.append(f"https://storage.mediocretoons.com/obra/{data['obr_id']}/capitulos/{data['cap_id']}/{src}")
+                urls.append(f"https://storage.mediocretoons.com/obra/{data['obra_id']}/capitulos/{data['cap_id']}/{src}")
 
-        pages = Pages.from_dict(
+        pages = Pages(
             id=str(data['cap_id']),
             number=str(data.get('cap_num', '')),
             name=data.get('cap_nome', ''),

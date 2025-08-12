@@ -15,9 +15,9 @@ class MediocretoonsProvider(Base):
     BASE_API = 'https://api.mediocretoons.com'
 
     def getManga(self, link: str) -> Manga:
-        # extrair id da obra da URL (ex: https://mediocretoons.com/obras/295)
+        # extrair id da obra da URL (ex: https://mediocretoons.com/obra/295)
         obra_id = self._extract_id(link)
-        url = f'{self.BASE_API}/obras/{obra_id}'
+        url = f'{self.BASE_API}/obra/{obra_id}'
         headers = {
             "Accept": "application/json",
             "User-Agent": "Mozilla/5.0",
@@ -32,9 +32,6 @@ class MediocretoonsProvider(Base):
         manga = Manga(
             id=str(data['id']),
             title=data['nome'],
-            description=data.get('descricao', ''),
-            cover_url=f"https://storage.mediocretoons.com/obras/{data['id']}/capa/{data.get('imagem', '')}",
-            # você pode adicionar mais campos se seu Manga aceitar
         )
         return manga
 
@@ -81,7 +78,7 @@ class MediocretoonsProvider(Base):
         paginas = json.loads(data.get('cap_paginas', '[]'))
 
         # montar a lista de URLs das imagens
-        urls = [f"https://storage.mediocretoons.com/obras/{data['obr_id']}/capitulos/{data['cap_id']}/{page['src']}" for page in paginas]
+        urls = [f"https://storage.mediocretoons.com/obra/{data['obr_id']}/capitulos/{data['cap_id']}/{page['src']}" for page in paginas]
 
         pages = Pages(
             urls=urls,
@@ -90,10 +87,10 @@ class MediocretoonsProvider(Base):
         return pages
 
     def _extract_id(self, url: str) -> str:
-        # exemplo para extrair id da URL: https://mediocretoons.com/obras/295
-        path = urlparse(url).path  # ex: /obras/295
+        # exemplo para extrair id da URL: https://mediocretoons.com/obra/295
+        path = urlparse(url).path  # ex: /obra/295
         parts = path.strip('/').split('/')
-        if len(parts) >= 2 and parts[0] == 'obras':
+        if len(parts) >= 2 and parts[0] == 'obra':
             return parts[1]
         raise ValueError("URL inválida para extrair ID da obra")
 

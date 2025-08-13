@@ -63,7 +63,7 @@ class MediocretoonsProvider(Base):
                 headless=False  # mude para True depois de testar
             )
             try:
-                page = await browser.get(self.BASE_WEB)
+                page = browser.get(self.BASE_WEB)
 
                 # Espera DOM carregar
                 await asyncio.sleep(1.0)

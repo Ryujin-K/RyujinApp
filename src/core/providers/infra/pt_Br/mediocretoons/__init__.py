@@ -1,9 +1,9 @@
-from core.providers.infra.template.base import Base
-from core.providers.domain.entities import Manga, Chapter, Page
-from core.__seedwork.infra.http.contract.http import HttpGateway
+import json
 import requests
 import zstandard as zstd
-import json
+from core.providers.infra.template.base import Base
+from core.providers.domain.entities import Manga, Chapter, Pages
+
 
 
 class MediocreToonsProvider(Base):
@@ -54,15 +54,15 @@ class MediocreToonsProvider(Base):
             ))
         return chapters
 
-    def getPages(self, chapter_url: str) -> list[Page]:
+    def getPages(self, chapter_url: str) -> list[Pages]:
         chap_id = chapter_url.strip("/").split("/")[-1]
         data = self._get_json(f"{self.base}/capitulos/{chap_id}")
 
-        Pages = []
+        pages = []
         obra_id = data["obra"]["id"]
         numero_capitulo = data["numero"]
         for p in data.get("paginas", []):
-            Pages.append(Page(
+            pages.append(Pages(
                 url=f"{self.cdn}/obras/{obra_id}/capitulos/{numero_capitulo}/{p['src']}"
             ))
-        return Pages
+        return pages

@@ -1,71 +1,68 @@
-import re
-from typing import List
-import asyncio
-import nodriver as uc
-from core.__seedwork.infra.http import Http
 from core.providers.infra.template.base import Base
-from core.providers.domain.entities import Chapter, Pages, Manga
+from core.providers.domain.entities import Manga, Chapter, Page
+from core.__seedwork.infra.http.contract.http import HttpGateway
+import requests
+import zstandard as zstd
+import json
+
 
 class MediocreToonsProvider(Base):
-    name = 'Mediocre Toons'
-    lang = 'pt_Br'
-    domain = ['mediocretoons.com', 'www.mediocretoons.com']
+    name = "Mediocre Toons"
+    lang = "pt_BR"
+    domain = ["mediocretoons.com", "www.mediocretoons.com"]
 
     def __init__(self) -> None:
-        self.base = 'https://api.mediocretoons.com'
-        self.CDN = 'https://storage.mediocretoons.com'
-        self.webBase = 'https://mediocretoons.com'
+        self.base = "https://api.mediocretoons.com"
+        self.cdn = "https://storage.mediocretoons.com"
+        self.webBase = "https://mediocretoons.com"
 
-    def _extract_obra_id(self, link: str) -> str:
-        m = re.search(r'/obra/(\d+)', link)
-        if not m:
-            raise ValueError('Não foi possível extrair o ID da obra da URL.')
-        return m.group(1)
+    def _get_json(self, url: str):
+        """Faz request e lida com resposta comprimida em zstd"""
+        headers = {
+            "User-Agent": "Mozilla/5.0",
+            "Accept-Encoding": "zstd",
+        }
+        resp = requests.get(url, headers=headers)
 
-    def getManga(self, link: str) -> Manga:
-        obra_id = self._extract_obra_id(link)
-        resp = Http.get(f'{self.base}/obras/{obra_id}').json()
-        title = resp.get('nome') or resp.get('obr_nome')
-        return Manga(link, title)
+        if resp.headers.get("content-encoding") == "zstd":
+            dctx = zstd.ZstdDecompressor()
+            reader = dctx.stream_reader(resp.content)
+            data = reader.read()
+            return json.loads(data.decode("utf-8"))
+        else:
+            return resp.json()
 
-    def getChapters(self, id: str) -> List[Chapter]:
-        obra_id = self._extract_obra_id(id)
-        resp = Http.get(f'{self.base}/obras/{obra_id}').json()
-        capitulos = resp.get('capitulos') or resp.get('resultado', {}).get('capitulos') or []
+    def getManga(self, manga_url: str) -> Manga:
+        manga_id = manga_url.strip("/").split("/")[-1]  # último segmento é o ID
+        data = self._get_json(f"{self.base}/obras/{manga_id}")
 
-        lista: List[Chapter] = []
-        for ch in capitulos:
-            cap_id = ch.get('id') or ch.get('cap_id')
-            cap_nome = ch.get('nome') or ch.get('cap_nome') or str(cap_id)
-            cap_numero = ch.get('numero') or ch.get('cap_numero') or ch.get('nome')
-            lista.append(Chapter([obra_id, cap_id, cap_numero], cap_nome, resp.get('nome') or resp.get('obr_nome')))
-        return lista
+        return Manga(
+            id=data["id"],
+            name=data["nome"]
+        )
 
-    async def _grab_token_cookie(self, chapter_url: str) -> dict:
-        browser = await uc.start(headless=True)
-        page = await browser.get(chapter_url)
-        await asyncio.sleep(3)  # espera carregar o token
-        cookies = await browser.cookies.get_all()
-        await browser.stop()
+    def getChapters(self, manga_url: str) -> list[Chapter]:
+        manga_id = manga_url.strip("/").split("/")[-1]
+        data = self._get_json(f"{self.base}/obras/{manga_id}")
 
-        for c in cookies:
-            if c['name'].startswith('token_'):
-                return {c['name']: c['value']}
-        return {}
+        chapters = []
+        for ch in data.get("capitulos", []):
+            chapters.append(Chapter(
+                id=ch["id"],
+                name=f"Capítulo {'numero'}",
+                number=ch["numero"]
+            ))
+        return chapters
 
-    def getPages(self, ch: Chapter) -> Pages:
-        obra_id, cap_id, cap_numero = ch.id[0], ch.id[1], ch.id[2]
-        chapter_url = f"{self.webBase}/obra/{obra_id}/capitulo/{cap_id}"
+    def getPages(self, chapter_url: str) -> list[Page]:
+        chap_id = chapter_url.strip("/").split("/")[-1]
+        data = self._get_json(f"{self.base}/capitulos/{chap_id}")
 
-        # pega o cookie token_* via nodriver
-        cookies = uc.loop().run_until_complete(self._grab_token_cookie(chapter_url))
-
-        # usa o cookie na API
-        data = Http.get(f'{self.base}/capitulos/{cap_id}', cookies=cookies).json()
-
-        numero = data.get('numero') or cap_numero or data.get('nome')
-        images = [
-            f"{self.CDN}/obras/{obra_id}/capitulos/{numero}/{p.get('src')}"
-            for p in data.get('paginas', []) if p.get('src')
-        ]
-        return Pages(ch.id, ch.number, ch.name, images)
+        pages = []
+        obra_id = data["obra"]["id"]
+        numero_capitulo = data["numero"]
+        for p in data.get("paginas", []):
+            pages.append(Page(
+                url=f"{self.cdn}/obras/{obra_id}/capitulos/{numero_capitulo}/{p['src']}"
+            ))
+        return pages

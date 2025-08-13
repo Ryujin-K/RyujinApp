@@ -49,7 +49,7 @@ class MediocretoonsProvider(Base):
         }
 
     def getManga(self, obra_nome: str) -> Manga:
-        logging.info(f"getManga (Navegação) chamado com obra_nome: {obra_nome}")
+        logging.info(f"getManga chamado com obra_nome: {obra_nome}")
 
         async def driver():
             browser = await uc.start(
@@ -60,12 +60,13 @@ class MediocretoonsProvider(Base):
                     '--no-default-browser-check',
                     '--disable-notifications',
                 ],
-                headless=False  # mude para True depois de testar
+                headless=False  # mudar para True depois de testar
             )
             try:
+                # Navega para a página (sem await)
                 page = browser.get(self.BASE_WEB)
 
-                # Espera DOM carregar
+                # Espera o DOM carregar
                 await asyncio.sleep(1.0)
 
                 # Clicar "Todos"
@@ -133,7 +134,7 @@ class MediocretoonsProvider(Base):
                 if not obra_url:
                     raise RuntimeError("Não foi possível obter URL da obra.")
 
-                # Extrai ID e consulta API via requests
+                # Extrai ID e consulta API
                 obra_id = self._extract_id(obra_url)
                 import requests
                 url_api = f'{self.BASE_API}/obras/{obra_id}'

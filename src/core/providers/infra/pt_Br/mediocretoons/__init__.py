@@ -1,111 +1,111 @@
-import os
-import requests
-import json
+import re
 from typing import List
-from urllib.parse import urlparse
-from core.providers.domain.entities import Chapter, Pages, Manga
+from core.__seedwork.infra.http import Http
 from core.providers.infra.template.base import Base
+from core.providers.domain.entities import Chapter, Pages, Manga
 
+class MediocreToonsProvider(Base):
+    name = 'Mediocre Toons'
+    lang = 'pt_Br'
+    domain = ['mediocretoons.com', 'www.mediocretoons.com']
 
-class MediocretoonsProvider(Base):
-    name = 'Mediocretoons'
-    lang = 'pt'
-    domain = ['mediocretoons.com']
-    has_login = False
+    def __init__(self) -> None:
+        self.base = 'https://api.mediocretoons.com'
+        self.CDN = 'https://storage.mediocretoons.com'
+        self.webBase = 'https://mediocretoons.com'
+        # sem bloqueios/cookies especiais por enquanto
+        self.cookies = []
 
-    BASE_API = 'https://api.mediocretoons.com'
-    BASE_CDN = 'https://storage.mediocretoons.com/obras'
+    # ---------- helpers ----------
+    def _extract_obra_id(self, link: str) -> str:
+        # ex: https://mediocretoons.com/obra/971/eu-reencarnei...
+        m = re.search(r'/obra/(\d+)', link)
+        if not m:
+            raise ValueError('Não foi possível extrair o ID da obra da URL.')
+        return m.group(1)
 
-    def _extract_id(self, url: str) -> str:
-        path = urlparse(url).path
-        parts = path.strip('/').split('/')
-        if len(parts) >= 2 and parts[0] in ['obra', 'obras']:
-            return parts[1]
-        raise ValueError("URL inválida para extrair ID da obra")
-    
-    def _default_headers(self):
-        return {
-            "Accept": "gzip, deflate, br, zstd",
-            "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/139.0.0.0 Safari/537.36",
-            "Referer": "https://mediocretoons.com/",
-            "Origin": "https://mediocretoons.com",
-        }
-
+    # ---------- domínio público ----------
     def getManga(self, link: str) -> Manga:
-        obra_id = self._extract_id(link)
-        url = f'{self.BASE_API}/obras/{obra_id}'
-        headers = self._default_headers()
-        resp = requests.get(url, headers=headers)
-        resp.raise_for_status()
-        data = resp.json()
+        obra_id = self._extract_obra_id(link)
+        # API obra: https://api.mediocretoons.com/obras/{id}
+        resp = Http.get(f'{self.base}/obras/{obra_id}').json()
+        # exemplos que você passou:
+        # { "id": 971, "nome": "Eu Reencarnei como o Herdeiro Louco", ... }
+        title = resp.get('nome') or resp.get('obr_nome')  # tolerante a variação
+        return Manga(link, title)
 
-        return Manga(
-            id=str(data['id']),
-            name=str(data['nome']),
+    def getChapters(self, id: str) -> List[Chapter]:
+        """
+        `id` aqui é a URL pública da obra (mantém compatibilidade com seu fluxo).
+        Vamos buscar a obra e tentar ler os capítulos a partir do payload.
+        Caso a API não retorne embutido, há dois fallbacks:
+          1) tentar endpoint comum /obras/{id}/capitulos
+          2) (opcional) scraper — deixado de fora por ora
+        """
+        obra_id = self._extract_obra_id(id)
+
+        # 1) tentativa pela própria obra
+        resp = Http.get(f'{self.base}/obras/{obra_id}').json()
+
+        # normalizamos possíveis chaves
+        capitulos = (
+            resp.get('capitulos')
+            or resp.get('resultado', {}).get('capitulos')
+            or []
         )
 
-    def getChapters(self, obra_id: str) -> List[Chapter]:
-        url = f'{self.BASE_API}/obras/{obra_id}'
-        headers = self._default_headers()
-        resp = requests.get(url, headers=headers)
-        resp.raise_for_status()
-        data = resp.json()
+        # 2) se vier vazio, tenta endpoint dedicado
+        if not capitulos:
+            try:
+                # muitos backends expõem esse padrão
+                resp2 = Http.get(f'{self.base}/obras/{obra_id}/capitulos').json()
+                # pode vir como lista direta ou como { "capitulos": [...] }
+                capitulos = resp2.get('capitulos', resp2) if isinstance(resp2, dict) else resp2
+            except Exception:
+                capitulos = []
 
-        chapters = []
-        for ch in data.get('capitulos', []):
-            chapters.append(
-                Chapter(
-                    id=str(ch['id']),
-                    number=str(ch.get('numero', None)),
-                    name=ch.get('nome'),
-                )
-            )
-        return chapters
+        lista: List[Chapter] = []
 
-    def getPages(self, chapter: Chapter) -> Pages:
-        url = f'{self.BASE_API}/capitulos/{chapter.id}'
-        headers_api = {
-            "User-Agent": (
-                "Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
-                "AppleWebKit/537.36 (KHTML, like Gecko) "
-                "Chrome/115.0.0.0 Safari/537.36"
-            ),
-            "Accept": "gzip, deflate, br, zstd",
-            "Referer": "https://mediocretoons.com/",
-            "Accept-Language": "pt-BR,pt;q=0.9,en-US;q=0.8,en;q=0.7",
+        for ch in capitulos:
+            # padroniza campos possíveis
+            cap_id = ch.get('id') or ch.get('cap_id')
+            cap_nome = ch.get('nome') or ch.get('cap_nome') or str(cap_id)
+            cap_numero = ch.get('numero') or ch.get('cap_numero') or ch.get('nome')  # alguns sites usam "nome" como número
+
+            # guardamos tudo que precisamos para montar as páginas depois:
+            # [obra_id, cap_id, cap_numero]
+            lista.append(Chapter([obra_id, cap_id, cap_numero], cap_nome, resp.get('nome') or resp.get('obr_nome')))
+
+        return lista
+
+    def getPages(self, ch: Chapter) -> Pages:
+        """
+        API capítulo: https://api.mediocretoons.com/capitulos/{cap_id}
+        Exemplo que você trouxe:
+        {
+          "id": 89535,
+          "nome": "116",
+          "numero": "116",
+          "paginas": [{ "src": "281d13....webp" }, ...]
         }
-        resp = requests.get(url, headers=headers_api)
-        resp.raise_for_status()
-        data = resp.json()
+        A URL final da imagem é:
+        https://storage.mediocretoons.com/obras/{obra_id}/capitulos/{numero}/{src}
+        """
+        obra_id, cap_id, cap_numero = ch.id[0], ch.id[1], ch.id[2]
+        data = Http.get(f'{self.base}/capitulos/{cap_id}').json()
 
+        numero = data.get('numero') or cap_numero or data.get('nome')
         paginas = data.get('paginas', [])
 
-        urls = []
-        headers_storage = {
-            "User-Agent": (
-                "Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
-                "AppleWebKit/537.36 (KHTML, like Gecko) "
-                "Chrome/115.0.0.0 Safari/537.36"
-            ),
-            "Accept": "image/avif,image/webp,image/apng,image/svg+xml,image/*,*/*;q=0.8",
-            "Referer": "https://mediocretoons.com/",
-            "Accept-Language": "pt-BR,pt;q=0.9,en-US;q=0.8,en;q=0.7",
-        }
+        # monta URLs absolutas
+        images = [
+            f"{self.CDN}/obras/{obra_id}/capitulos/{numero}/{p.get('src')}"
+            for p in paginas if p.get('src')
+        ]
 
-        for page in paginas:
-            # Monta URL completa da imagem
-            page_url = f"https://storage.mediocretoons.com/obras/{data['obr_id']}/capitulos/{data['cap_id']}/{page.get('src','')}"
-            
-            # Faz request individual usando headers personalizados
-            r = requests.get(page_url, headers=headers_storage)
-            if r.status_code == 200:
-                # Se quiser, pode até pegar r.content aqui para baixar a imagem
-                urls.append(page_url)
+        # fallback (se por algum motivo vierem URLs absolutas no HTML):
+        if not images and isinstance(paginas, list):
+            # tenta encontrar 'url' direta
+            images = [p.get('url') for p in paginas if p.get('url')]
 
-        return Pages(
-            id=str(data['cap_id']),
-            number=str(data.get('cap_num', '')),
-            name=chapter.name,
-            pages=urls,  # aqui vai a lista de URLs válidas
-        )
-
+        return Pages(ch.id, ch.number, ch.name, images)

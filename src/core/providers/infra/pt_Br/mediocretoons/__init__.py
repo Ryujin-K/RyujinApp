@@ -3,6 +3,7 @@ import requests
 import json
 from typing import List
 from urllib.parse import urlparse
+from core.download.application.use_cases import DownloadUseCase
 from core.providers.domain.entities import Chapter, Pages, Manga
 from core.providers.infra.template.base import Base
 
@@ -82,4 +83,7 @@ class MediocretoonsProvider(Base):
             name=chapter.name,
             pages=urls,
         )
+    
+    def download(self, pages: Pages, fn: any, headers=_default_headers, cookies=None):
+        return DownloadUseCase().execute(pages=pages, fn=fn, headers=headers, cookies=cookies)
 

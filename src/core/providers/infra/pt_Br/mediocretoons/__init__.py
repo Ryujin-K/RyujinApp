@@ -22,6 +22,14 @@ class MediocretoonsProvider(Base):
         if len(parts) >= 2 and parts[0] in ['obra', 'obras']:
             return parts[1]
         raise ValueError("URL inválida para extrair ID da obra")
+    
+    def _default_headers(self):
+        return {
+            "Accept": "application/json",
+            "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64)",
+            "Referer": "https://mediocretoons.com",
+            "Origin": "https://mediocretoons.com",
+        }
 
     def getManga(self, link: str) -> Manga:
         obra_id = self._extract_id(link)
@@ -56,12 +64,7 @@ class MediocretoonsProvider(Base):
 
     def getPages(self, chapter: Chapter) -> Pages:
         url = f'{self.BASE_API}/capitulos/{chapter.id}'
-        headers = {
-            "Accept": "application/json",
-            "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64)",
-            "Referer": "https://mediocretoons.com",
-            "Origin": "https://mediocretoons.com",
-        }
+        headers = self._default_headers
         resp = requests.get(url, headers=headers)
         resp.raise_for_status()
         data = resp.json()
@@ -79,5 +82,4 @@ class MediocretoonsProvider(Base):
             name=chapter.name,
             pages=urls,
         )
-
 

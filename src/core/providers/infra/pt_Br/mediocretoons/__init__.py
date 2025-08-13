@@ -1,8 +1,12 @@
 import logging
 import os
-import requests
+import math
+import asyncio
 from urllib.parse import urlparse
 from typing import List
+from bs4 import BeautifulSoup
+import nodriver as uc
+
 from core.providers.domain.entities import Chapter, Pages, Manga
 from core.providers.infra.template.base import Base
 from core.download.application.use_cases import DownloadUseCase
@@ -22,6 +26,7 @@ class MediocretoonsProvider(Base):
     domain = ['mediocretoons.com']
     has_login = False
 
+    BASE_WEB = 'https://mediocretoons.com'
     BASE_API = 'https://api.mediocretoons.com'
     BASE_CDN = 'https://storage.mediocretoons.com/obras'
 
@@ -39,33 +44,30 @@ class MediocretoonsProvider(Base):
         return {
             "Accept": "application/json",
             "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64)",
-            "Referer": "https://mediocretoons.com",
-            "Origin": "https://mediocretoons.com",
+            "Referer": self.BASE_WEB,
+            "Origin": self.BASE_WEB,
         }
 
     def getManga(self, link: str) -> Manga:
         logging.info(f"getManga chamado com link: {link}")
         obra_id = self._extract_id(link)
         url = f'{self.BASE_API}/obras/{obra_id}'
-        headers = self._default_headers()
-        resp = requests.get(url, headers=headers)
+        import requests
+        resp = requests.get(url, headers=self._default_headers())
         logging.info(f"GET {url} status_code: {resp.status_code}")
         resp.raise_for_status()
         data = resp.json()
         logging.debug(f"Dados recebidos getManga: {data}")
 
-        manga = Manga(
-            id=str(data['id']),
-            name=str(data['nome']),
-        )
+        manga = Manga(id=str(data['id']), name=str(data['nome']))
         logging.info(f"Manga criado: {manga}")
         return manga
 
     def getChapters(self, obra_id: str) -> List[Chapter]:
         logging.info(f"getChapters chamado com obra_id: {obra_id}")
         url = f'{self.BASE_API}/obras/{obra_id}'
-        headers = self._default_headers()
-        resp = requests.get(url, headers=headers)
+        import requests
+        resp = requests.get(url, headers=self._default_headers())
         logging.info(f"GET {url} status_code: {resp.status_code}")
         resp.raise_for_status()
         data = resp.json()
@@ -82,28 +84,68 @@ class MediocretoonsProvider(Base):
             logging.info(f"Chapter criado: {chapter}")
         return chapters
 
+    def _get_pages_html(self, url: str, delay: int, background: bool = False) -> str:
+        """Usa nodriver para carregar a página e retornar o HTML"""
+        async def driver():
+            logging.debug(f"Iniciando navegador para {url} com delay {delay}s (background={background})")
+            browser = await uc.start(
+                browser_args=[
+                    '--window-size=600,600',
+                    f'--app={url}',
+                    '--disable-extensions',
+                    '--disable-popup-blocking'
+                ],
+                headless=background
+            )
+            try:
+                page = await browser.get(url)
+                await asyncio.sleep(delay)
+                html = await page.get_content()
+                return html
+            finally:
+                logging.debug("Encerrando navegador")
+                await browser.stop()
+
+        return uc.loop().run_until_complete(driver())
+
     def getPages(self, chapter: Chapter) -> Pages:
         logging.info(f"getPages chamado com chapter: {chapter}")
-        url = f'{self.BASE_API}/capitulos/{chapter.id}'
-        headers = self._default_headers()
-        resp = requests.get(url, headers=headers)
-        logging.info(f"GET {url} status_code: {resp.status_code}")
-        resp.raise_for_status()
-        data = resp.json()
-        logging.debug(f"Dados recebidos getPages: {data}")
 
-        paginas = data.get('paginas', [])
-        urls = [
-            f"https://storage.mediocretoons.com/obras/{data['obr_id']}/capitulos/{data['cap_id']}/{page.get('src', '')}"
-            for page in paginas
-        ]
-        logging.info(f"URLs de páginas montadas: {urls}")
+        base_delay = 25
+        max_delay = 300
+        max_attempts = 5
+        attempt = 0
+        images = []
+
+        while attempt < max_attempts:
+            try:
+                current_delay = min(base_delay * math.pow(2, attempt), max_delay)
+                logging.info(f"Tentativa {attempt+1}/{max_attempts} - delay {current_delay}s")
+
+                html = self._get_pages_html(
+                    url=f"{self.BASE_WEB}/capitulo/{chapter.id}",
+                    delay=current_delay,
+                    background=attempt > 1
+                )
+
+                soup = BeautifulSoup(html, 'html.parser')
+                images = [img.get('src') for img in soup.select('img.chakra-image')]
+
+                if images:
+                    logging.info(f"Encontradas {len(images)} imagens")
+                    break
+                else:
+                    logging.warning("Nenhuma imagem encontrada, tentando novamente...")
+            except Exception as e:
+                logging.error(f"Tentativa {attempt+1} falhou: {e}", exc_info=True)
+
+            attempt += 1
 
         pages = Pages(
-            id=str(data['cap_id']),
-            number=str(data.get('cap_num', '')),
+            id=chapter.id,
+            number=chapter.number,
             name=chapter.name,
-            pages=urls,
+            pages=images
         )
         logging.info(f"Pages criado: {pages}")
         return pages
@@ -112,6 +154,11 @@ class MediocretoonsProvider(Base):
         logging.info(f"download chamado com Pages: {pages}")
         if headers is None:
             headers = self._default_headers()
-        result = DownloadUseCase().execute(pages=pages, fn=fn, headers=headers, cookies=cookies)
+        result = DownloadUseCase().execute(
+            pages=pages,
+            fn=fn,
+            headers=headers,
+            cookies=cookies
+        )
         logging.info(f"download finalizado com resultado: {result}")
         return result

@@ -48,20 +48,65 @@ class MediocretoonsProvider(Base):
             "Origin": self.BASE_WEB,
         }
 
-    def getManga(self, link: str) -> Manga:
-        logging.info(f"getManga chamado com link: {link}")
-        obra_id = self._extract_id(link)
-        url = f'{self.BASE_API}/obras/{obra_id}'
-        import requests
-        resp = requests.get(url, headers=self._default_headers())
-        logging.info(f"GET {url} status_code: {resp.status_code}")
-        resp.raise_for_status()
-        data = resp.json()
-        logging.debug(f"Dados recebidos getManga: {data}")
+    def getManga(self, nome_obra: str) -> Manga:
+        logging.info(f"getManga iniciado para obra: {nome_obra}")
 
-        manga = Manga(id=str(data['id']), name=str(data['nome']))
-        logging.info(f"Manga criado: {manga}")
-        return manga
+        async def driver():
+            browser = await uc.start(
+                browser_args=[
+                    '--window-size=1200,800',
+                    '--disable-extensions',
+                    '--disable-popup-blocking'
+                ],
+                headless=False
+            )
+            try:
+                # 1. Abrir site
+                page = await browser.get(self.BASE_WEB)
+                logging.debug("Página inicial carregada")
+
+                # 2. Clicar no botão "Todos"
+                todos_btn = await page.select("button:has-text('Todos')")
+                if todos_btn:
+                    await todos_btn[0].click()
+                    logging.debug("Botão 'Todos' clicado")
+                else:
+                    logging.error("Botão 'Todos' não encontrado")
+                    return None
+
+                # 3. Buscar no campo de pesquisa
+                search_input = await page.select("input[placeholder='Buscar']")
+                if search_input:
+                    await search_input[0].type(nome_obra)
+                    logging.debug(f"Digitado '{nome_obra}' no campo de busca")
+                    await asyncio.sleep(1)
+                else:
+                    logging.error("Campo de busca não encontrado")
+                    return None
+
+                # 4. Clicar na obra encontrada
+                obra_link = await page.select(f"a:has-text('{nome_obra}')")
+                if obra_link:
+                    href = await obra_link[0].get_attribute("href")
+                    await obra_link[0].click()
+                    logging.debug(f"Obra '{nome_obra}' clicada - href: {href}")
+                else:
+                    logging.error("Obra não encontrada nos resultados")
+                    return None
+
+                # 5. Extrair ID da obra da URL
+                await asyncio.sleep(1)
+                current_url = page.url
+                obra_id = self._extract_id(current_url)
+                logging.info(f"Obra encontrada: ID={obra_id}, Nome={nome_obra}")
+
+                return Manga(id=obra_id, name=nome_obra)
+
+            finally:
+                await browser.stop()
+
+        return uc.loop().run_until_complete(driver())
+
 
     def getChapters(self, obra_id: str) -> List[Chapter]:
         logging.info(f"getChapters chamado com obra_id: {obra_id}")

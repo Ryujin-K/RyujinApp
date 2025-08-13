@@ -48,65 +48,106 @@ class MediocretoonsProvider(Base):
             "Origin": self.BASE_WEB,
         }
 
-    def getManga(self, nome_obra: str) -> Manga:
-        logging.info(f"getManga iniciado para obra: {nome_obra}")
+    def getManga(self, obra_nome: str) -> Manga:
+        logging.info(f"getManga (Navegação) chamado com obra_nome: {obra_nome}")
 
         async def driver():
             browser = await uc.start(
                 browser_args=[
                     '--window-size=1200,800',
                     '--disable-extensions',
-                    '--disable-popup-blocking'
+                    '--disable-popup-blocking',
+                    '--no-default-browser-check',
+                    '--disable-notifications',
                 ],
-                headless=False
+                headless=False  # mude para True depois de testar
             )
             try:
-                # 1. Abrir site
                 page = await browser.get(self.BASE_WEB)
-                logging.debug("Página inicial carregada")
 
-                # 2. Clicar no botão "Todos"
-                todos_btn = await page.select("button:has-text('Todos')")
-                if todos_btn:
-                    await todos_btn[0].click()
-                    logging.debug("Botão 'Todos' clicado")
-                else:
-                    logging.error("Botão 'Todos' não encontrado")
-                    return None
+                # Espera DOM carregar
+                await asyncio.sleep(1.0)
 
-                # 3. Buscar no campo de pesquisa
-                search_input = await page.select("input[placeholder='Buscar']")
-                if search_input:
-                    await search_input[0].type(nome_obra)
-                    logging.debug(f"Digitado '{nome_obra}' no campo de busca")
-                    await asyncio.sleep(1)
-                else:
-                    logging.error("Campo de busca não encontrado")
-                    return None
+                # Clicar "Todos"
+                click_todos_js = """
+                (function(){
+                    const el = Array.from(document.querySelectorAll('a,button,span,div'))
+                      .find(e => (e.textContent || '').trim().toLowerCase() === 'todos');
+                    if(el){ el.click(); return true; }
+                    return false;
+                })();
+                """
+                await uc.cdp.Runtime.evaluate(
+                    page.conn,
+                    expression=click_todos_js,
+                    returnByValue=True
+                )
 
-                # 4. Clicar na obra encontrada
-                obra_link = await page.select(f"a:has-text('{nome_obra}')")
-                if obra_link:
-                    href = await obra_link[0].get_attribute("href")
-                    await obra_link[0].click()
-                    logging.debug(f"Obra '{nome_obra}' clicada - href: {href}")
-                else:
-                    logging.error("Obra não encontrada nos resultados")
-                    return None
+                await asyncio.sleep(0.6)
 
-                # 5. Extrair ID da obra da URL
-                await asyncio.sleep(1)
-                current_url = page.url
-                obra_id = self._extract_id(current_url)
-                logging.info(f"Obra encontrada: ID={obra_id}, Nome={nome_obra}")
+                # Digitar no campo de busca
+                type_search_js = f"""
+                (function(q){{
+                    const input = document.querySelector('input[placeholder],input[type="search"]');
+                    if(!input) return false;
+                    input.focus();
+                    input.value = q;
+                    input.dispatchEvent(new Event('input', {{bubbles:true}}));
+                    input.dispatchEvent(new KeyboardEvent('keydown', {{key:'Enter', bubbles:true}}));
+                    return true;
+                }})('{obra_nome}');
+                """
+                await uc.cdp.Runtime.evaluate(
+                    page.conn,
+                    expression=type_search_js,
+                    returnByValue=True
+                )
 
-                return Manga(id=obra_id, name=nome_obra)
+                await asyncio.sleep(1.0)
+
+                # Clicar na obra
+                click_obra_js = f"""
+                (function(q){{
+                    q = q.trim().toLowerCase();
+                    const link = Array.from(document.querySelectorAll('a[href^="/obra/"], a[href^="/obras/"]'))
+                      .find(a => (a.textContent || '').trim().toLowerCase().includes(q));
+                    if(link) {{
+                        link.click();
+                        return link.href || link.getAttribute('href');
+                    }}
+                    return null;
+                }})('{obra_nome}');
+                """
+                result = await uc.cdp.Runtime.evaluate(
+                    page.conn,
+                    expression=click_obra_js,
+                    returnByValue=True
+                )
+                obra_url = result.get("result", {}).get("value")
+                await asyncio.sleep(1.0)
+
+                # Pega URL atual se não tiver no click
+                if not obra_url:
+                    obra_url = await self._run_js(page, "location.href")
+
+                if not obra_url:
+                    raise RuntimeError("Não foi possível obter URL da obra.")
+
+                # Extrai ID e consulta API via requests
+                obra_id = self._extract_id(obra_url)
+                import requests
+                url_api = f'{self.BASE_API}/obras/{obra_id}'
+                resp = requests.get(url_api, headers=self._default_headers())
+                resp.raise_for_status()
+                data = resp.json()
+                return Manga(id=str(data['id']), name=str(data['nome']))
 
             finally:
                 await browser.stop()
 
-        return uc.loop().run_until_complete(driver())
-
+        manga = uc.loop().run_until_complete(driver())
+        logging.info(f"Manga criado: {manga}")
+        return manga
 
     def getChapters(self, obra_id: str) -> List[Chapter]:
         logging.info(f"getChapters chamado com obra_id: {obra_id}")
@@ -155,36 +196,15 @@ class MediocretoonsProvider(Base):
 
     def getPages(self, chapter: Chapter) -> Pages:
         logging.info(f"getPages chamado com chapter: {chapter}")
+        import requests
 
-        base_delay = 25
-        max_delay = 300
-        max_attempts = 5
-        attempt = 0
-        images = []
+        url = f"{self.BASE_API}/capitulos/{chapter.id}"
+        resp = requests.get(url, headers=self._default_headers())
+        resp.raise_for_status()
+        data = resp.json()
 
-        while attempt < max_attempts:
-            try:
-                current_delay = min(base_delay * math.pow(2, attempt), max_delay)
-                logging.info(f"Tentativa {attempt+1}/{max_attempts} - delay {current_delay}s")
-
-                html = self._get_pages_html(
-                    url=f"{self.BASE_WEB}/capitulo/{chapter.id}",
-                    delay=current_delay,
-                    background=attempt > 1
-                )
-
-                soup = BeautifulSoup(html, 'html.parser')
-                images = [img.get('src') for img in soup.select('img.chakra-image')]
-
-                if images:
-                    logging.info(f"Encontradas {len(images)} imagens")
-                    break
-                else:
-                    logging.warning("Nenhuma imagem encontrada, tentando novamente...")
-            except Exception as e:
-                logging.error(f"Tentativa {attempt+1} falhou: {e}", exc_info=True)
-
-            attempt += 1
+        # Aqui as imagens já vêm no JSON
+        images = [p['link'] for p in data.get('paginas', [])]
 
         pages = Pages(
             id=chapter.id,
@@ -195,15 +215,4 @@ class MediocretoonsProvider(Base):
         logging.info(f"Pages criado: {pages}")
         return pages
     
-    def download(self, pages: Pages, fn: any = None, headers=None, cookies=None):
-        logging.info(f"download chamado com Pages: {pages}")
-        if headers is None:
-            headers = self._default_headers()
-        result = DownloadUseCase().execute(
-            pages=pages,
-            fn=fn,
-            headers=headers,
-            cookies=cookies
-        )
-        logging.info(f"download finalizado com resultado: {result}")
-        return result
+

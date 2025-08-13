@@ -58,11 +58,11 @@ class MediocreToonsProvider(Base):
         chap_id = chapter_url.strip("/").split("/")[-1]
         data = self._get_json(f"{self.base}/capitulos/{chap_id}")
 
-        pages = []
+        Pages = []
         obra_id = data["obra"]["id"]
         numero_capitulo = data["numero"]
         for p in data.get("paginas", []):
-            pages.append(Page(
+            Pages.append(Page(
                 url=f"{self.cdn}/obras/{obra_id}/capitulos/{numero_capitulo}/{p['src']}"
             ))
-        return pages
+        return Pages

@@ -80,17 +80,32 @@ class MediocretoonsProvider(Base):
 
         paginas = data.get('paginas', [])
 
-        # Monta a URL completa de cada imagem
-        urls = [
-            f"https://storage.mediocretoons.com/obras/{data['obr_id']}/capitulos/{data['cap_id']}/{page.get('src','')}"
-            for page in paginas
-        ]
+        urls = []
+        headers_storage = {
+            "User-Agent": (
+                "Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
+                "AppleWebKit/537.36 (KHTML, like Gecko) "
+                "Chrome/115.0.0.0 Safari/537.36"
+            ),
+            "Accept": "image/avif,image/webp,image/apng,image/svg+xml,image/*,*/*;q=0.8",
+            "Referer": "https://mediocretoons.com/",
+            "Accept-Language": "pt-BR,pt;q=0.9,en-US;q=0.8,en;q=0.7",
+        }
+
+        for page in paginas:
+            # Monta URL completa da imagem
+            page_url = f"https://storage.mediocretoons.com/obras/{data['obr_id']}/capitulos/{data['cap_id']}/{page.get('src','')}"
+            
+            # Faz request individual usando headers personalizados
+            r = requests.get(page_url, headers=headers_storage)
+            if r.status_code == 200:
+                # Se quiser, pode até pegar r.content aqui para baixar a imagem
+                urls.append(page_url)
 
         return Pages(
             id=str(data['cap_id']),
             number=str(data.get('cap_num', '')),
             name=chapter.name,
-            pages=urls,  # aqui vai a lista de URLs completas
+            pages=urls,  # aqui vai a lista de URLs válidas
         )
-
 

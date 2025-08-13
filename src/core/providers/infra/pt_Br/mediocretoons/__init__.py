@@ -63,26 +63,26 @@ class MediocretoonsProvider(Base):
         return chapters
 
     def getPages(self, chapter: Chapter) -> Pages:
-
         url = f'{self.BASE_API}/capitulos/{chapter.id}'
-        headers = {
-        "User-Agent": (
-            "Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
-            "AppleWebKit/537.36 (KHTML, like Gecko) "
-            "Chrome/115.0.0.0 Safari/537.36"
-        ),
-        "Accept": "gzip, deflate, br, zstd",
-        "Referer": "https://mediocretoons.com/",  # pode ser necessário
-        "Accept-Language": "pt-BR,pt;q=0.9,en-US;q=0.8,en;q=0.7",
-    }
-        resp = requests.get(url, headers=headers)
+        headers_api = {
+            "User-Agent": (
+                "Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
+                "AppleWebKit/537.36 (KHTML, like Gecko) "
+                "Chrome/115.0.0.0 Safari/537.36"
+            ),
+            "Accept": "gzip, deflate, br, zstd",
+            "Referer": "https://mediocretoons.com/",
+            "Accept-Language": "pt-BR,pt;q=0.9,en-US;q=0.8,en;q=0.7",
+        }
+        resp = requests.get(url, headers=headers_api)
         resp.raise_for_status()
         data = resp.json()
 
         paginas = data.get('paginas', [])
 
+        # Monta a URL completa de cada imagem
         urls = [
-            f"https://storage.mediocretoons.com/obras/{data['obr_id']}/capitulos/{data['cap_id']}/{page.get('src', '')}"
+            f"https://storage.mediocretoons.com/obras/{data['obr_id']}/capitulos/{data['cap_id']}/{page.get('src','')}"
             for page in paginas
         ]
 
@@ -90,6 +90,7 @@ class MediocretoonsProvider(Base):
             id=str(data['cap_id']),
             number=str(data.get('cap_num', '')),
             name=chapter.name,
-            pages=urls,
+            pages=urls,  # aqui vai a lista de URLs completas
         )
+
 

@@ -8,7 +8,7 @@ from core.providers.domain.entities import Manga, Chapter, Pages
 
 class MediocreToonsProvider(Base):
     name = "Mediocre Toons"
-    lang = "pt_BR"
+    lang = "pt_Br"
     domain = ["mediocretoons.com", "www.mediocretoons.com"]
 
     def __init__(self) -> None:

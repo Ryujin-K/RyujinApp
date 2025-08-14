@@ -16,8 +16,6 @@ splash = 'splash.jpg' if is_posix else 'splash.png'
 
 os.environ['PYTHONPATH'] = str(src_path)
 
-pyqt6_binaries = collect_dynamic_libs('PyQt6')
-
 args = [
     path_to_main,
     '--onefile',
@@ -41,10 +39,6 @@ args = [
     f'--add-data=src/core/download{separator}core/download',
     f'--add-data=src/GUI_qt/assets{separator}GUI_qt/assets'
 ]
-
-for binary in pyqt6_binaries:
-    src, dest = binary
-    args.append(f'--add-binary={src}{separator}{dest}')
 
 if not is_mac:
     args.append(f'--splash=assets/{splash}')

@@ -16,8 +16,20 @@ class MediocreToonsProvider(Base):
 
     def _get_json(self, url: str) -> dict:
         """Faz uma requisição GET para a URL e retorna os dados JSON."""
-        response = requests.get(url)
-        response.raise_for_status()  # Levanta uma exceção se a requisição falhar
+        headers = {
+            'Accept': 'application/json',
+            'Accept-Language': 'es-US,es-419;q=0.9,es;q=0.8,en;q=0.7,pt;q=0.6',
+            'Authorization': 'Bearer null',
+            'Cache-Control': 'no-cache',
+            'Origin': 'https://mediocretoons.com',
+            'Pragma': 'no-cache',
+            'Referer': 'https://mediocretoons.com/',
+            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/139.0.0.0 Safari/537.36'
+        }
+
+        response = requests.get(url, headers=headers)
+        response.raise_for_status()  # Levanta exceção para códigos 4xx/5xx
+            
         return response.json()
 
     def getManga(self, manga_url: str) -> Manga:

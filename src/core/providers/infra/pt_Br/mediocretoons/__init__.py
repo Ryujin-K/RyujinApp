@@ -66,33 +66,36 @@ class MediocreToonsProvider(Base):
     def getChapters(self, manga_url_or_id: str) -> list[Chapter]:
         manga_id = self._extract_id(manga_url_or_id)
         data = self._get_json(f"{self.base}/obras/{manga_id}")
-
         chapters = []
         for ch in data.get("capitulos", []):
             chapters.append(Chapter(
-                id=ch["id"],
+                id=str(ch["id"]),
                 name=f"Capítulo {ch['numero']}",
-                number=ch["numero"]
+                number=str(ch["numero"])
             ))
         return chapters
 
-    def getPages(self, ch: Chapter) -> list[Pages]:
+    def getPages(self, ch: Chapter) -> Pages:
+        # Pega dados do capítulo
         chapter_id = ch.id
         data = self._get_json(f"{self.base}/capitulos/{chapter_id}")
-
         obra_id = str(data["obra"]["id"])
         numero_capitulo = str(data["numero"])
         nome_capitulo = data["nome"]
 
-        imagens = [
+        # Lista de URLs das imagens, renomeadas como 1,2,3...
+        files = [
             f"{self.cdn}/obras/{obra_id}/capitulos/{numero_capitulo}/{p['src']}"
             for p in data.get("paginas", [])
         ]
 
-        return [Pages(
+        # Retorna como Pages do download_entity, com arquivos renomeados
+        renamed_files = {str(i+1): url for i, url in enumerate(files)}
+        return Pages(
             id=chapter_id,
-            number=ch.number,
+            number=str(numero_capitulo),
             name=nome_capitulo,
-            pages=imagens
-        )]
+            pages=list(renamed_files.values())
+        )
+
 

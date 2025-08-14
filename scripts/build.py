@@ -20,7 +20,7 @@ qt_bin = Path(QtCore.__file__).parent / "Qt6" / "bin"
 
 args = [
     path_to_main,
-    '--onedir',
+    '--onefile',
     '--noconfirm',
     '--noconsole',
     '--collect-all=PyQt6',

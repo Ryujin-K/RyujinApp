@@ -14,6 +14,25 @@ class MediocreToonsProvider(Base):
         self.cdn = "https://storage.mediocretoons.com"
         self.webBase = "https://mediocretoons.com"
 
+    def _extract_id(self, url_or_id) -> str:
+        """Extrai o ID numérico da URL (penúltimo segmento)"""
+        if isinstance(url_or_id, int):
+            return str(url_or_id)
+        url_str = str(url_or_id)
+
+        if url_str.isdigit():
+            return url_str
+        
+        parts = url_str.strip("/").split("/")
+
+        if len(parts) >= 2:
+            # O penúltimo segmento deve ser o ID
+            potential_id = parts[-2]  # Penúltimo elemento
+            if potential_id.isdigit():
+                return potential_id
+        
+        raise ValueError(f"Não foi possível extrair o ID da URL: {url_or_id}")
+
     def _get_json(self, url: str) -> dict:
         """Faz uma requisição GET para a URL e retorna os dados JSON."""
         headers = {
@@ -35,8 +54,8 @@ class MediocreToonsProvider(Base):
         except requests.exceptions.RequestException as e:
             raise Exception(f"Erro ao acessar a API: {str(e)}")
 
-    def getManga(self, manga_url: str) -> Manga:
-        manga_id = manga_url.strip("/").split("/")[-2]  # último segmento é o ID
+    def getManga(self, manga_url_or_id: str) -> Manga:
+        manga_id = self._extract_id(manga_url_or_id)
         data = self._get_json(f"{self.base}/obras/{manga_id}")
 
         return Manga(
@@ -44,22 +63,22 @@ class MediocreToonsProvider(Base):
             name=data["nome"]
         )
 
-    def getChapters(self, manga_url: str) -> list[Chapter]:
-        manga_id = manga_url.strip("/").split("/")[-2]
+    def getChapters(self, manga_url_or_id: str) -> list[Chapter]:
+        manga_id = self._extract_id(manga_url_or_id)
         data = self._get_json(f"{self.base}/obras/{manga_id}")
 
         chapters = []
         for ch in data.get("capitulos", []):
             chapters.append(Chapter(
-                id=str(ch["id"]),
-                name=str(f"Capítulo {'numero'}"),
-                number=str(ch["numero"])
+                id=ch["id"],
+                name=f"Capítulo {'numero'}",
+                number=ch["numero"]
             ))
         return chapters
 
-    def getPages(self, chapter_url: str) -> list[Pages]:
-        chap_id = chapter_url.strip("/").split("/")[-1]
-        data = self._get_json(f"{self.base}/capitulos/{chap_id}")
+    def getPages(self, chapter_url_or_id: str) -> list[Pages]:
+        chapter_id = chapter_url_or_id.strip("/").split("/")[-1]
+        data = self._get_json(f"{self.base}/capitulos/{chapter_id}")
 
         pages = []
         obra_id = data["obra"]["id"]

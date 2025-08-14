@@ -82,24 +82,25 @@ class MediocreToonsProvider(Base):
         return chapters
 
 
-def getPages(self, ch: Chapter) -> Pages:
-    chapter_id = ch.id
-    data = self._get_json(f"{self.base}/capitulos/{chapter_id}")
+    def getPages(self, ch: Chapter) -> Pages:
+        chapter_id = ch.id
+        data = self._get_json(f"{self.base}/capitulos/{chapter_id}")
 
-    obra_id = str(data["obra"]["id"])
-    numero_capitulo = str(data["numero"])
-    nome_capitulo = data["nome"]
+        obra_id = str(data["obra"]["id"])
+        numero_capitulo = str(data["numero"])
+        nome_capitulo = data["nome"]
 
-    imagens = [
-        f"{self.cdn}/obras/{obra_id}/capitulos/{numero_capitulo}/{p['src']}"
-        for p in data.get("paginas", [])
-    ]
+        imagens = [
+            f"{self.cdn}/obras/{obra_id}/capitulos/{numero_capitulo}/{p['src']}"
+            for p in data.get("paginas", [])
+        ]
 
-    return Pages(
-        id=str(chapter_id),
-        number=str(numero_capitulo),
-        name=nome_capitulo,
-        pages=imagens
-    )
+        return Pages(
+            id=str(chapter_id),
+            number=numero_capitulo,
+            name=nome_capitulo,
+            pages=imagens
+        )
+
 
 

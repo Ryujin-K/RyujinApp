@@ -18,19 +18,22 @@ class MediocreToonsProvider(Base):
         """Faz uma requisição GET para a URL e retorna os dados JSON."""
         headers = {
             'Accept': 'application/json',
-            'Accept-Language': 'es-US,es-419;q=0.9,es;q=0.8,en;q=0.7,pt;q=0.6',
-            'Authorization': 'Bearer null',
+            'Accept-Language': 'pt-BR,pt;q=0.9,en-US;q=0.8,en;q=0.7',
             'Cache-Control': 'no-cache',
-            'Origin': 'https://mediocretoons.com',
-            'Pragma': 'no-cache',
-            'Referer': 'https://mediocretoons.com/',
-            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/139.0.0.0 Safari/537.36'
+            'Origin': self.webBase,
+            'Referer': f'{self.webBase}/',
+            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/119.0.0.0 Safari/537.36',
+            'Sec-Fetch-Dest': 'empty',
+            'Sec-Fetch-Mode': 'cors',
+            'Sec-Fetch-Site': 'same-site'
         }
 
-        response = requests.get(url, headers=headers)
-        response.raise_for_status()  # Levanta exceção para códigos 4xx/5xx
-            
-        return response.json()
+        try:
+            response = requests.get(url, headers=headers, timeout=10)
+            response.raise_for_status()
+            return response.json()
+        except requests.exceptions.RequestException as e:
+            raise Exception(f"Erro ao acessar a API: {str(e)}")
 
     def getManga(self, manga_url: str) -> Manga:
         manga_id = manga_url.strip("/").split("/")[-1]  # último segmento é o ID

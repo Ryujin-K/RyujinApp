@@ -1,3 +1,4 @@
+from PyQt6 import QtCore
 import PyInstaller.__main__
 from pathlib import Path
 from sys import platform
@@ -14,6 +15,8 @@ separator = ':' if is_posix else ';'
 splash = 'splash.jpg' if is_posix else 'splash.png'
 
 os.environ['PYTHONPATH'] = str(src_path)
+
+qt_bin = Path(QtCore.__file__).parent / "Qt6" / "bin"
 
 args = [
     path_to_main,
@@ -38,7 +41,8 @@ args = [
     f'--add-data=src/core/cloudflare{separator}core/cloudflare',
     f'--add-data=src/core/config{separator}core/config',
     f'--add-data=src/core/download{separator}core/download',
-    f'--add-data=src/GUI_qt/assets{separator}GUI_qt/assets'
+    f'--add-data=src/GUI_qt/assets{separator}GUI_qt/assets',
+    f'--add-binary={qt_bin}{os.sep}*;PyQt6\\Qt6\\bin'
 ]
 
 if not is_mac:

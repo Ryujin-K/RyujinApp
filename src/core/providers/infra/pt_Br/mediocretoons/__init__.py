@@ -76,7 +76,7 @@ class MediocreToonsProvider(Base):
             ))
         return chapters
 
-    def getPages(self, ch: Chapter) -> Pages:
+    def getPages(self, ch: Chapter) -> list[Pages]:
         chapter_id = ch.id
         data = self._get_json(f"{self.base}/capitulos/{chapter_id}")
 
@@ -84,18 +84,15 @@ class MediocreToonsProvider(Base):
         numero_capitulo = str(data["numero"])
         nome_capitulo = data["nome"]
 
-        # Lista com todas as URLs de imagens
-        images = [
+        imagens = [
             f"{self.cdn}/obras/{obra_id}/capitulos/{numero_capitulo}/{p['src']}"
             for p in data.get("paginas", [])
         ]
 
-        # Retorna um único Pages com todas as imagens do capítulo
-        return Pages(
+        return [Pages(
             id=chapter_id,
             number=ch.number,
             name=nome_capitulo,
-            pages=images
-        )
-
+            pages=imagens
+        )]
 

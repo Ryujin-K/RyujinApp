@@ -76,15 +76,24 @@ class MediocreToonsProvider(Base):
             ))
         return chapters
 
-    def getPages(self, chapter_url_or_id: str) -> list[Pages]:
-        chapter_id = chapter_url_or_id.strip("/").split("/")[-1]
+    def getPages(self, chapter_url_or_id: str | int) -> list[Pages]:
+        chapter_id = str(chapter_url_or_id).strip("/").split("/")[-1]
         data = self._get_json(f"{self.base}/capitulos/{chapter_id}")
 
-        pages = []
-        obra_id = data["obra"]["id"]
-        numero_capitulo = data["numero"]
-        for p in data.get("paginas", []):
-            pages.append(Pages(
-                url=f"{self.cdn}/obras/{obra_id}/capitulos/{numero_capitulo}/{p['src']}"
-            ))
-        return pages
+        obra_id = str(data["obra"]["id"])
+        numero_capitulo = str(data["numero"])
+        nome_capitulo = data["nome"]
+
+        pages_list = []
+
+        for idx, p in enumerate(data.get("paginas", []), start=1):
+            page = Pages(
+                id=chapter_id,
+                number=str(idx),
+                name=nome_capitulo,
+                pages=[f"{self.cdn}/obras/{obra_id}/capitulos/{numero_capitulo}/{p['src']}"]
+            )
+            pages_list.append(page)
+
+        return pages_list
+

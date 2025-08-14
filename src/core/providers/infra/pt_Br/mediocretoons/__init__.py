@@ -51,9 +51,9 @@ class MediocreToonsProvider(Base):
         chapters = []
         for ch in data.get("capitulos", []):
             chapters.append(Chapter(
-                id=ch["id"],
-                name=f"Capítulo {'numero'}",
-                number=ch["numero"]
+                id=str(ch["id"]),
+                name=str(f"Capítulo {'numero'}"),
+                number=str(ch["numero"])
             ))
         return chapters
 

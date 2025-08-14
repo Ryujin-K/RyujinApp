@@ -1,4 +1,3 @@
-import re
 import requests
 from core.providers.infra.template.base import Base
 from core.providers.domain.entities import Manga, Chapter, Pages
@@ -14,19 +13,6 @@ class MediocreToonsProvider(Base):
         self.base = "https://api.mediocretoons.com"
         self.cdn = "https://storage.mediocretoons.com"
         self.webBase = "https://mediocretoons.com"
-
-    def _extract_id(self, url_or_slug: str) -> str:
-        """Extrai o ID numérico de uma URL ou slug"""
-        # Se já for um número, retorna direto
-        if isinstance(url_or_slug, int) or url_or_slug.isdigit():
-            return str(url_or_slug)
-        
-        # Extrai o ID da URL (ex: 'https://mediocretoons.com/obra/971/...' → '971')
-        match = re.search(r'/(\d+)/', url_or_slug)
-        if match:
-            return match.group(1)
-        
-        raise ValueError(f"Não foi possível extrair o ID de: {url_or_slug}")
 
     def _get_json(self, url: str) -> dict:
         """Faz uma requisição GET para a URL e retorna os dados JSON."""
@@ -47,10 +33,10 @@ class MediocreToonsProvider(Base):
             response.raise_for_status()
             return response.json()
         except requests.exceptions.RequestException as e:
-            raise Exception(f"Erro na requisição: {str(e)}")
-        
+            raise Exception(f"Erro ao acessar a API: {str(e)}")
+
     def getManga(self, manga_url: str) -> Manga:
-        manga_id = manga_url.strip("/").split("/")[-1]  # último segmento é o ID
+        manga_id = manga_url.strip("/").split("/")[-2]  # último segmento é o ID
         data = self._get_json(f"{self.base}/obras/{manga_id}")
 
         return Manga(
@@ -59,7 +45,7 @@ class MediocreToonsProvider(Base):
         )
 
     def getChapters(self, manga_url: str) -> list[Chapter]:
-        manga_id = manga_url.strip("/").split("/")[-1]
+        manga_id = manga_url.strip("/").split("/")[-2]
         data = self._get_json(f"{self.base}/obras/{manga_id}")
 
         chapters = []

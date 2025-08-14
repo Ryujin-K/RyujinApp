@@ -1,4 +1,3 @@
-import json
 import requests
 from core.providers.infra.template.base import Base
 from core.providers.domain.entities import Manga, Chapter, Pages
@@ -14,6 +13,12 @@ class MediocreToonsProvider(Base):
         self.base = "https://api.mediocretoons.com"
         self.cdn = "https://storage.mediocretoons.com"
         self.webBase = "https://mediocretoons.com"
+
+    def _get_json(self, url: str) -> dict:
+        """Faz uma requisição GET para a URL e retorna os dados JSON."""
+        response = requests.get(url)
+        response.raise_for_status()  # Levanta uma exceção se a requisição falhar
+        return response.json()
 
     def getManga(self, manga_url: str) -> Manga:
         manga_id = manga_url.strip("/").split("/")[-1]  # último segmento é o ID

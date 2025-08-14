@@ -90,7 +90,6 @@ class MediocreToonsProvider(Base):
             page = Pages(
                 id=chapter_id,
                 number=str(idx),
-                name=nome_capitulo,
                 pages=[f"{self.cdn}/obras/{obra_id}/capitulos/{numero_capitulo}/{p['src']}"]
             )
             pages_list.append(page)

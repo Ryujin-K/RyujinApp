@@ -71,13 +71,13 @@ class MediocreToonsProvider(Base):
         for ch in data.get("capitulos", []):
             chapters.append(Chapter(
                 id=ch["id"],
-                name=f"Capítulo {'numero'}",
+                name=f"Capítulo {ch['numero']}",
                 number=ch["numero"]
             ))
         return chapters
 
-    def getPages(self, chapter_url_or_id: str | int) -> list[Pages]:
-        chapter_id = str(chapter_url_or_id).strip("/").split("/")[-1]
+    def getPages(self, ch: Chapter) -> list[Pages]:
+        chapter_id = ch.id 
         data = self._get_json(f"{self.base}/capitulos/{chapter_id}")
 
         obra_id = str(data["obra"]["id"])

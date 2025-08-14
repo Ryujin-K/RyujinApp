@@ -66,36 +66,41 @@ class MediocreToonsProvider(Base):
     def getChapters(self, manga_url_or_id: str) -> list[Chapter]:
         manga_id = self._extract_id(manga_url_or_id)
         data = self._get_json(f"{self.base}/obras/{manga_id}")
-        chapters = []
-        for ch in data.get("capitulos", []):
-            chapters.append(Chapter(
-                id=str(ch["id"]),
+
+        chapters = [
+            Chapter(
+                id=ch["id"],
                 name=f"Capítulo {ch['numero']}",
-                number=str(ch["numero"])
-            ))
+                number=ch["numero"]
+            )
+            for ch in data.get("capitulos", [])
+        ]
+
+        # Ordena os capítulos pelo número
+        chapters.sort(key=lambda c: int(c.number))
+
         return chapters
 
-    def getPages(self, ch: Chapter) -> Pages:
-        # Pega dados do capítulo
+
+    def getPages(self, ch: Chapter) -> list[Pages]:
         chapter_id = ch.id
         data = self._get_json(f"{self.base}/capitulos/{chapter_id}")
+
         obra_id = str(data["obra"]["id"])
         numero_capitulo = str(data["numero"])
         nome_capitulo = data["nome"]
 
-        # Lista de URLs das imagens, renomeadas como 1,2,3...
-        files = [
-            f"{self.cdn}/obras/{obra_id}/capitulos/{numero_capitulo}/{p['src']}"
-            for p in data.get("paginas", [])
-        ]
+        pages_list = []
 
-        # Retorna como Pages do download_entity, com arquivos renomeados
-        renamed_files = {str(i+1): url for i, url in enumerate(files)}
-        return Pages(
-            id=chapter_id,
-            number=str(numero_capitulo),
-            name=nome_capitulo,
-            pages=list(renamed_files.values())
-        )
+        for idx, p in enumerate(data.get("paginas", []), start=1):
+            page = Pages(
+                id=chapter_id,
+                number=str(idx),
+                name=nome_capitulo,
+                pages=[f"{self.cdn}/obras/{obra_id}/capitulos/{numero_capitulo}/{p['src']}"]
+            )
+            pages_list.append(page)
+
+        return pages_list
 
 

@@ -1,6 +1,5 @@
 import json
 import requests
-import zstandard as zstd
 from core.providers.infra.template.base import Base
 from core.providers.domain.entities import Manga, Chapter, Pages
 
@@ -15,22 +14,6 @@ class MediocreToonsProvider(Base):
         self.base = "https://api.mediocretoons.com"
         self.cdn = "https://storage.mediocretoons.com"
         self.webBase = "https://mediocretoons.com"
-
-    def _get_json(self, url: str):
-        """Faz request e lida com resposta comprimida em zstd"""
-        headers = {
-            "User-Agent": "Mozilla/5.0",
-            "Accept-Encoding": "zstd",
-        }
-        resp = requests.get(url, headers=headers)
-
-        if resp.headers.get("content-encoding") == "zstd":
-            dctx = zstd.ZstdDecompressor()
-            reader = dctx.stream_reader(resp.content)
-            data = reader.read()
-            return json.loads(data.decode("utf-8"))
-        else:
-            return resp.json()
 
     def getManga(self, manga_url: str) -> Manga:
         manga_id = manga_url.strip("/").split("/")[-1]  # último segmento é o ID

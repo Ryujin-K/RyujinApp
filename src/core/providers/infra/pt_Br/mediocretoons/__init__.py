@@ -88,7 +88,7 @@ class MediocreToonsProvider(Base):
 
         obra_id = str(data["obra"]["id"])
         numero_capitulo = str(data["numero"])
-        nome_capitulo = data["nome"]
+        nome_capitulo = str(data["nome"])
 
         imagens = [
             f"{self.cdn}/obras/{obra_id}/capitulos/{numero_capitulo}/{p['src']}"
@@ -101,6 +101,3 @@ class MediocreToonsProvider(Base):
             name=nome_capitulo,
             pages=imagens
         )
-
-
-

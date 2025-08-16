@@ -22,9 +22,17 @@ class ImperiodabritanniaProvider(WordPressMadara):
         self.query_title_for_uri = 'head meta[property="og:title"]'
         self.query_placeholder = '[id^="manga-chapters-holder"][data-id]'
         ua = UserAgent()
-        user = ua.chrome
         self.user = ua.chrome
-        self.headers = {'host': 'imperiodabritannia.com', 'user_agent': user, 'referer': f'{self.url}', 'Cookie': 'acesso_legitimo=1'}
+        self.headers = {
+            "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/139.0.0.0 Safari/537.36",
+            "Accept": "*/*",
+            "Accept-Language": "pt-BR,pt;q=0.9,en-US;q=0.8,en;q=0.7",
+            "Accept-Encoding": "gzip, deflate, br",
+            "Cache-Control": "no-cache",
+            "Referer": "https://imperiodabritannia.com/",
+            "Origin": "https://imperiodabritannia.com",
+            "Connection": "keep-alive",
+        }
     
     def download(self, pages: Pages, fn: any, headers=None, cookies=None):
         if headers is not None:
@@ -35,9 +43,29 @@ class ImperiodabritanniaProvider(WordPressMadara):
     
     def _get_chapters_ajax(self, manga_id):
         uri = urljoin(self.url, f'{manga_id}ajax/chapters/')
-        response = Http.post(uri, headers={'Cookie': 'visited=true; wpmanga-reading-history=W3siaWQiOjg4MiwiYyI6IjIzMzU5IiwicCI6MSwiaSI6IiIsInQiOjE3MTk5NjEwODN9XQ%3D%3D'})
-        data = self._fetch_dom(response, self.query_chapters)
+        print(f"[DEBUG] Fazendo request para: {uri}")
+        
+        # headers mais realistas
+        headers = self.headers | {
+            "X-Requested-With": "XMLHttpRequest",
+            "Referer": f"{self.url}manga/{manga_id}/"
+        }
+
+        # tenta com requests
+        response = Http.post(uri, headers=headers, cookies={'visited': 'true'})
+        print(f"[DEBUG] Response retornado: {response}")
+
+        if response is None:
+            raise Exception(f"[ERRO] Falha ao acessar {uri}, Http.post retornou None")
+        
+        try:
+            data = self._fetch_dom(response, self.query_chapters)
+            print(f"[DEBUG] Chapters encontrados: {data}")
+        except Exception as e:
+            print(f"[ERRO] _fetch_dom quebrou: {e}")
+            raise
+        
         if data:
             return data
         else:
-            raise Exception('No chapters found (new ajax endpoint)!')
+            raise Exception('[ERRO] Nenhum capítulo encontrado (ajax endpoint)')

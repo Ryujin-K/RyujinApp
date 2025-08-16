@@ -1,4 +1,4 @@
-from urllib.parse import urljoin
+from urllib.parse import urljoin, urlencode
 from fake_useragent import UserAgent
 from core.__seedwork.infra.http import Http
 from core.providers.domain.entities import Pages
@@ -69,3 +69,38 @@ class ImperiodabritanniaProvider(WordPressMadara):
             return data
         else:
             raise Exception('[ERRO] Nenhum capítulo encontrado (ajax endpoint)')
+        
+    def _create_manga_request(self, page):
+        form = {
+            'action': 'madara_load_more',
+            'template': 'madara-core/content/content-archive',
+            'page': page,
+            'vars[paged]': '0',
+            'vars[post_type]': 'wp-manga',
+            'vars[posts_per_page]': '250'
+        }
+        headers = {
+            'content-type': 'application/x-www-form-urlencoded',
+            'x-referer': self.url
+        }
+        request_url = urljoin(self.url, f'{self.path}/wp-admin/admin-ajax.php')
+
+        response = Http.post(
+            request_url,
+            data=urlencode(form),
+            headers=headers,
+            timeout=getattr(self, 'timeout', None)
+        )
+
+        # 🔒 Validação para evitar NoneType
+        if response is None:
+            raise RuntimeError(
+                f"❌ Falha ao obter resposta em {request_url} (página {page})."
+            )
+
+        if not hasattr(response, "content") or response.content is None:
+            raise RuntimeError(
+                f"❌ Resposta inválida em {request_url} (página {page}), sem conteúdo."
+            )
+
+        return response

@@ -22,14 +22,17 @@ class ImperiodabritanniaProvider(WordPressMadara):
         self.query_placeholder = '[id^="manga-chapters-holder"][data-id]'
 
         ua = UserAgent()
-        user = ua.chrome
+        desktop_ua = ua.chrome
         self.user = ua.chrome
 
         self.headers = {
-            'host': 'imperiodabritannia.com',
-            'user_agent': user,
-            'referer': f'{self.url}',
-            'Cookie': 'acesso_legitimo=1'
+            'Host': 'imperiodabritannia.com',
+            'User-Agent': desktop_ua,
+            'Referer': f'{self.url}',
+            'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,image/apng,*/*;q=0.8',
+            'Accept-Language': 'pt-BR,pt;q=0.9,en-US;q=0.8,en;q=0.7',
+            'Cookie': 'acesso_legitimo=1',
+            'Connection': 'keep-alive',
         }
 
         print("[Imperio] Provider inicializado com headers:", self.headers)

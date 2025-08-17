@@ -1,4 +1,6 @@
+import time
 from urllib.parse import urljoin
+import undetected_chromedriver as uc
 from fake_useragent import UserAgent
 from core.__seedwork.infra.http import Http
 from core.providers.domain.entities import Pages
@@ -36,6 +38,32 @@ class ImperiodabritanniaProvider(WordPressMadara):
         }
 
         print("[Imperio] Provider inicializado com headers:", self.headers)
+
+    def fetch_with_undetected_chrome(self, url: str, headless=True) -> str:
+        """Abre a página com Chrome não detectado e retorna o HTML completo."""
+        options = uc.ChromeOptions()
+        options.add_argument("--disable-blink-features=AutomationControlled")
+        options.add_argument("--disable-extensions")
+        options.add_argument("--disable-popup-blocking")
+        options.add_argument(f"user-agent={self.headers.get('User-Agent')}")
+        
+        driver = uc.Chrome(options=options, headless=headless)
+        try:
+            driver.get(url)
+            # Espera mínima para o conteúdo carregar
+            time.sleep(3)
+
+            # Se houver Turnstile, manual ou automático via loop
+            attempts = 0
+            while "verificando" in driver.page_source.lower() and attempts < 5:
+                print("[Cloudflare] Aguardando Turnstile ser liberado...")
+                time.sleep(2)
+                attempts += 1
+
+            html = driver.page_source
+            return html
+        finally:
+            driver.quit()
 
     def download(self, pages: Pages, fn: any, headers=None, cookies=None):
         if headers is not None:

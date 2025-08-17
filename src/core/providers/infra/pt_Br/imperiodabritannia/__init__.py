@@ -18,7 +18,7 @@ class ImperiodabritanniaProvider(WordPressMadara):
         super().__init__()
         self.url = 'https://imperiodabritannia.com/'
         self.path = ''
-        
+
         self.query_mangas = 'div.post-title h3 a, div.post-title h5 a'
         self.query_chapters = 'li.wp-manga-chapter > a'
         self.query_chapters_title_bloat = None
@@ -80,25 +80,22 @@ class ImperiodabritanniaProvider(WordPressMadara):
         html = self._get_html(url)
         soup = BeautifulSoup(html, 'html.parser')
 
-        placeholder = soup.select_one(self.query_placeholder)
-        if placeholder:
-            try:
-                data = self._get_chapters_ajax(id)
-            except Exception:
-                try:
-                    data = self._get_chapters_ajax_old(placeholder['data-id'])
-                except Exception:
-                    data = []
+        # Pega todos os capítulos
+        elements = soup.select("ul.main.version-chap.no-volumn.active li.wp-manga-chapter a")
 
         chs = []
-        for el in data:
+        # Nome do mangá (usado como ch_name em todos os capítulos)
+        ch_name = soup.select_one(self.query_title_for_uri).text.strip()
+
+        for el in elements:
             ch_id = self.get_root_relative_or_absolute_link(el, url)
             ch_number = el.text.strip()
-            ch_name = soup.select_one(self.query_title_for_uri).text.strip()
             chs.append(Chapter(ch_id, ch_number, ch_name))
 
+        # Inverte para ordem crescente (Cap 1, 2, 3…)
         chs.reverse()
         return chs
+
 
     def getPages(self, ch: Chapter) -> Pages:
         url = urljoin(self.url, ch.id)

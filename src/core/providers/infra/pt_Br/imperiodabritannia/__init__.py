@@ -18,6 +18,13 @@ class ImperiodabritanniaProvider(WordPressMadara):
         super().__init__()
         self.url = 'https://imperiodabritannia.com/'
         self.path = ''
+        
+        self.query_mangas = 'div.post-title h3 a, div.post-title h5 a'
+        self.query_chapters = 'li.wp-manga-chapter > a'
+        self.query_chapters_title_bloat = None
+        self.query_pages = 'div.page-break.no-gaps'
+        self.query_title_for_uri = 'head meta[property="og:title"]'
+        self.query_placeholder = '[id^="manga-chapters-holder"][data-id]'
 
         ua = UserAgent()
         desktop_ua = ua.chrome
@@ -28,7 +35,7 @@ class ImperiodabritanniaProvider(WordPressMadara):
         print("[Imperio] Provider inicializado com Selenium + Undetected Chrome")
 
     # ------------------ Selenium fetch ------------------
-    def _get_html(self, url: str, headless=True) -> str:
+    def _get_html(self, url: str, headless=False) -> str:
         """Abre a página com Selenium e retorna o HTML completo."""
         options = uc.ChromeOptions()
         options.add_argument("--disable-blink-features=AutomationControlled")
@@ -53,8 +60,17 @@ class ImperiodabritanniaProvider(WordPressMadara):
     def getManga(self, link: str) -> Manga:
         html = self._get_html(link)
         soup = BeautifulSoup(html, 'html.parser')
-        element = soup.select_one(self.query_title_for_uri)
-        title = element['content'].strip() if element and 'content' in element.attrs else element.text.strip()
+        
+        # Seleciona o H1 do título do manga
+        h1 = soup.select_one("div#manga-title h1")
+        if h1:
+            # Pega apenas o texto direto, ignorando spans ou filhos
+            title = ''.join([t for t in h1.contents if isinstance(t, str)]).strip()
+        else:
+            # fallback para meta tag caso H1 não exista
+            element = soup.select_one(self.query_title_for_uri)
+            title = element['content'].strip() if element and 'content' in element.attrs else element.text.strip()
+        
         return Manga(id=link, name=title)
 
     def getChapters(self, id: str):

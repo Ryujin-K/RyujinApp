@@ -51,7 +51,7 @@ class ImperiodabritanniaProvider(WordPressMadara):
             return None
 
     # ------------------ Selenium fetch ------------------
-    def _get_html(self, url: str, headless=False) -> str:
+    def _get_html(self, url: str, headless=True) -> str:
         """Tenta usar requests com cookies; se não, abre com Selenium e salva cookies."""
         # 1) tenta requests com cookies já salvos
         if self.cookies:

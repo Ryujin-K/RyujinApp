@@ -23,6 +23,7 @@ args = [
     '--noconsole',
     '--collect-all=PyQt6',
     '--collect-all=nodriver',
+    '--collect-all=undetected_chromedriver',
     '--collect-all=bs4',
     '--collect-all=cv2',
     '--collect-all=cloudscraper',

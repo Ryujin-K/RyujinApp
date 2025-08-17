@@ -120,30 +120,21 @@ class ImperiodabritanniaProvider(WordPressMadara):
     def getPages(self, ch: Chapter) -> Pages:
         url = urljoin(self.url, ch.id)
         url = self._add_query_params(url, {'style': 'list'})
-
-        # Usa Selenium para capturar as imagens renderizadas
-        html, cookies = self._get_html(url, return_cookies=True)
+        html = self._get_html(url)
         soup = BeautifulSoup(html, 'html.parser')
         data = soup.select(self.query_pages)
-
         if not data:
             url = self._remove_query_params(url, ['style'])
-            html, cookies = self._get_html(url, return_cookies=True)
+            html = self._get_html(url)
             soup = BeautifulSoup(html, 'html.parser')
             data = soup.select(self.query_pages)
 
         pages_list = []
         for el in data:
-            img = el.find("img")
-            if not img:
-                continue
-            src = img.get("data-src") or img.get("src")
-            if src:
-                pages_list.append(src)
+            pages_list.append(self._process_page_element(el, url))
 
         number = re.findall(r'\d+\.?\d*', str(ch.number))[0]
         return Pages(ch.id, number, ch.name, pages_list)
-
 
     def download(self, pages: Pages, fn: any, headers=None, cookies=None):
         print(f"[Imperio] Iniciando download de {len(pages)} páginas")

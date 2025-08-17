@@ -1,5 +1,7 @@
 import re
 import time
+import json
+import requests
 from bs4 import BeautifulSoup
 from urllib.parse import urljoin
 import undetected_chromedriver as uc
@@ -32,11 +34,32 @@ class ImperiodabritanniaProvider(WordPressMadara):
             'User-Agent': desktop_ua,
             'Referer': self.url
         }
+        self.cookies = None  # <--- armazenar cookies aqui
         print("[Imperio] Provider inicializado com Selenium + Undetected Chrome")
+
+    # ------------------ Cookies Helpers ------------------
+    def _save_cookies(self, driver, path="cookies.json"):
+        with open(path, "w") as f:
+            json.dump(driver.get_cookies(), f)
+
+    def _load_cookies(self, path="cookies.json"):
+        try:
+            with open(path, "r") as f:
+                cookies = json.load(f)
+                return {c["name"]: c["value"] for c in cookies}
+        except FileNotFoundError:
+            return None
 
     # ------------------ Selenium fetch ------------------
     def _get_html(self, url: str, headless=False) -> str:
-        """Abre a página com Selenium e retorna o HTML completo."""
+        """Tenta usar requests com cookies; se não, abre com Selenium e salva cookies."""
+        # 1) tenta requests com cookies já salvos
+        if self.cookies:
+            resp = requests.get(url, headers=self.headers, cookies=self.cookies)
+            if resp.status_code == 200 and "verificando" not in resp.text.lower():
+                return resp.text
+
+        # 2) fallback -> Selenium
         options = uc.ChromeOptions()
         options.add_argument("--disable-blink-features=AutomationControlled")
         options.add_argument(f"user-agent={self.headers['User-Agent']}")
@@ -46,12 +69,17 @@ class ImperiodabritanniaProvider(WordPressMadara):
         driver = uc.Chrome(options=options, headless=headless)
         try:
             driver.get(url)
-            time.sleep(3)  # espera mínima para carregar
+            time.sleep(3)
             attempts = 0
             while "verificando" in driver.page_source.lower() and attempts < 5:
                 print("[Cloudflare] Aguardando Turnstile ser liberado...")
-                time.sleep(2)
+                time.sleep(8)
                 attempts += 1
+
+            # salva cookies
+            self._save_cookies(driver)
+            self.cookies = {c["name"]: c["value"] for c in driver.get_cookies()}
+
             return driver.page_source
         finally:
             driver.quit()
@@ -61,13 +89,10 @@ class ImperiodabritanniaProvider(WordPressMadara):
         html = self._get_html(link)
         soup = BeautifulSoup(html, 'html.parser')
         
-        # Seleciona o H1 do título do manga
         h1 = soup.select_one("div#manga-title h1")
         if h1:
-            # Pega apenas o texto direto, ignorando spans ou filhos
             title = ''.join([t for t in h1.contents if isinstance(t, str)]).strip()
         else:
-            # fallback para meta tag caso H1 não exista
             element = soup.select_one(self.query_title_for_uri)
             title = element['content'].strip() if element and 'content' in element.attrs else element.text.strip()
         
@@ -80,11 +105,8 @@ class ImperiodabritanniaProvider(WordPressMadara):
         html = self._get_html(url)
         soup = BeautifulSoup(html, 'html.parser')
 
-        # Pega todos os capítulos
         elements = soup.select("ul.main.version-chap.no-volumn.active li.wp-manga-chapter a")
-
         chs = []
-        # Nome do mangá (usado como ch_name em todos os capítulos)
         ch_name = soup.select_one(self.query_title_for_uri).text.strip()
 
         for el in elements:
@@ -92,10 +114,8 @@ class ImperiodabritanniaProvider(WordPressMadara):
             ch_number = el.text.strip()
             chs.append(Chapter(ch_id, ch_number, ch_name))
 
-        # Inverte para ordem crescente (Cap 1, 2, 3…)
         chs.reverse()
         return chs
-
 
     def getPages(self, ch: Chapter) -> Pages:
         url = urljoin(self.url, ch.id)
@@ -116,8 +136,12 @@ class ImperiodabritanniaProvider(WordPressMadara):
         number = re.findall(r'\d+\.?\d*', str(ch.number))[0]
         return Pages(ch.id, number, ch.name, pages_list)
 
-    # O download de imagens permanece igual
     def download(self, pages: Pages, fn: any, headers=None, cookies=None):
         print(f"[Imperio] Iniciando download de {len(pages)} páginas")
-        return DownloadUseCase().execute(pages=pages, fn=fn, headers=headers or self.headers, cookies=cookies)
-
+        # usa cookies salvos
+        return DownloadUseCase().execute(
+            pages=pages,
+            fn=fn,
+            headers=headers or self.headers,
+            cookies=cookies or self.cookies
+        )

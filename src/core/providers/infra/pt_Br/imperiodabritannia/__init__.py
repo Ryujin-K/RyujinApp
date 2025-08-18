@@ -51,15 +51,9 @@ class ImperiodabritanniaProvider(WordPressMadara):
             return None
 
     # ------------------ Selenium fetch ------------------
-    def _get_html(self, url: str, headless=True) -> str:
-        """Tenta usar requests com cookies; se não, abre com Selenium e salva cookies."""
-        # 1) tenta requests com cookies já salvos
-        if self.cookies:
-            resp = requests.get(url, headers=self.headers, cookies=self.cookies)
-            if resp.status_code == 200 and "verificando" not in resp.text.lower():
-                return resp.text
+    def _get_html(self, url: str, headless=False) -> str:
 
-        # 2) fallback -> Selenium
+        # Selenium
         options = uc.ChromeOptions()
         options.add_argument("--disable-blink-features=AutomationControlled")
         options.add_argument(f"user-agent={self.headers['User-Agent']}")
@@ -69,11 +63,11 @@ class ImperiodabritanniaProvider(WordPressMadara):
         driver = uc.Chrome(options=options, headless=headless)
         try:
             driver.get(url)
-            time.sleep(8)
+            time.sleep(10)
             attempts = 0
             while "verificando" in driver.page_source.lower() and attempts < 5:
                 print("[Cloudflare] Aguardando Turnstile ser liberado...")
-                time.sleep(8)
+                time.sleep(5)
                 attempts += 1
 
             # salva cookies

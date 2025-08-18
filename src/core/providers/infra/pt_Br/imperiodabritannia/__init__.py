@@ -19,7 +19,6 @@ class ImperiodabritanniaProvider(WordPressMadara):
     def __init__(self):
         super().__init__()
         self.url = 'https://imperiodabritannia.com/'
-        self.path = ''
 
         self.query_mangas = 'div.post-title h3 a, div.post-title h5 a'
         self.query_chapters = 'li.wp-manga-chapter > a'
@@ -34,8 +33,10 @@ class ImperiodabritanniaProvider(WordPressMadara):
             'User-Agent': desktop_ua,
             'Referer': self.url
         }
-        self.cookies = None  # <--- armazenar cookies aqui
-        print("[Imperio] Provider inicializado com Selenium + Undetected Chrome")
+        # cookies carregados do arquivo
+        self.cookies = self._load_cookies()  
+
+        print("[Imperio] Provider inicializado com cookies salvos" if self.cookies else "[Imperio] Nenhum cookie salvo, será necessário abrir Selenium")
 
     # ------------------ Cookies Helpers ------------------
     def _save_cookies(self, driver, path="cookies.json"):
@@ -50,10 +51,21 @@ class ImperiodabritanniaProvider(WordPressMadara):
         except FileNotFoundError:
             return None
 
-    # ------------------ Selenium fetch ------------------
-    def _get_html(self, url: str, headless=False) -> str:
+    # ------------------ HTML Fetch ------------------
+    def _get_html(self, url: str, headless=True) -> str:
+        """
+        Primeiro tenta requests com cookies.
+        Se falhar, abre Selenium (somente 1ª vez), salva cookies e repete requests.
+        """
+        # 1) tenta requests direto
+        if self.cookies:
+            resp = requests.get(url, headers=self.headers, cookies=self.cookies)
+            if resp.status_code == 200 and "verificando" not in resp.text.lower():
+                return resp.text
+            else:
+                print("[Imperio] Cookies inválidos, refazendo login com Selenium...")
 
-        # Selenium
+        # 2) abre Selenium somente se necessário
         options = uc.ChromeOptions()
         options.add_argument("--disable-blink-features=AutomationControlled")
         options.add_argument(f"user-agent={self.headers['User-Agent']}")
@@ -64,6 +76,7 @@ class ImperiodabritanniaProvider(WordPressMadara):
         try:
             driver.get(url)
             time.sleep(10)
+
             attempts = 0
             while "verificando" in driver.page_source.lower() and attempts < 5:
                 print("[Cloudflare] Aguardando Turnstile ser liberado...")
@@ -82,14 +95,14 @@ class ImperiodabritanniaProvider(WordPressMadara):
     def getManga(self, link: str) -> Manga:
         html = self._get_html(link)
         soup = BeautifulSoup(html, 'html.parser')
-        
+
         h1 = soup.select_one("div#manga-title h1")
         if h1:
             title = ''.join([t for t in h1.contents if isinstance(t, str)]).strip()
         else:
             element = soup.select_one(self.query_title_for_uri)
             title = element['content'].strip() if element and 'content' in element.attrs else element.text.strip()
-        
+
         return Manga(id=link, name=title)
 
     def getChapters(self, id: str):
@@ -132,7 +145,6 @@ class ImperiodabritanniaProvider(WordPressMadara):
 
     def download(self, pages: Pages, fn: any, headers=None, cookies=None):
         print(f"[Imperio] Iniciando download de {len(pages)} páginas")
-        # usa cookies salvos
         return DownloadUseCase().execute(
             pages=pages,
             fn=fn,

@@ -1,15 +1,9 @@
-import re
-import time
-import json
-import requests
-from bs4 import BeautifulSoup
 from urllib.parse import urljoin
-import undetected_chromedriver as uc
 from fake_useragent import UserAgent
-from core.providers.domain.entities import Chapter, Pages, Manga
+from core.__seedwork.infra.http import Http
+from core.providers.domain.entities import Manga, Pages
 from core.download.application.use_cases import DownloadUseCase
 from core.providers.infra.template.wordpress_madara import WordPressMadara
-
 
 class ImperiodabritanniaProvider(WordPressMadara):
     name = 'Imperio da britannia'
@@ -17,137 +11,60 @@ class ImperiodabritanniaProvider(WordPressMadara):
     domain = ['imperiodabritannia.com']
 
     def __init__(self):
-        super().__init__()
         self.url = 'https://imperiodabritannia.com/'
 
-        self.query_mangas = 'div.post-title h3 a, div.post-title h5 a'
+        self.path = ''
+        
+        self.query_mangas = 'div.page-item-detail.manga a'
         self.query_chapters = 'li.wp-manga-chapter > a'
         self.query_chapters_title_bloat = None
         self.query_pages = 'div.page-break.no-gaps'
         self.query_title_for_uri = 'head meta[property="og:title"]'
         self.query_placeholder = '[id^="manga-chapters-holder"][data-id]'
-
         ua = UserAgent()
-        desktop_ua = ua.chrome
-        self.headers = {
-            'User-Agent': desktop_ua,
-            'Referer': self.url
-        }
-        # cookies carregados do arquivo
-        self.cookies = self._load_cookies()  
+        user = ua.chrome
+        self.user = ua.chrome
+        self.headers = {'host': 'imperiodabritannia.com', 'User-Agent': user, 'referer': f'{self.url}', 'Cookie': 'acesso_legitimo=1'}
 
-        print("[Imperio] Provider inicializado com cookies salvos" if self.cookies else "[Imperio] Nenhum cookie salvo, será necessário abrir Selenium")
-
-    # ------------------ Cookies Helpers ------------------
-    def _save_cookies(self, driver, path="cookies.json"):
-        with open(path, "w") as f:
-            json.dump(driver.get_cookies(), f)
-
-    def _load_cookies(self, path="cookies.json"):
-        try:
-            with open(path, "r") as f:
-                cookies = json.load(f)
-                return {c["name"]: c["value"] for c in cookies}
-        except FileNotFoundError:
-            return None
-
-    # ------------------ HTML Fetch ------------------
-    def _get_html(self, url: str, headless=True) -> str:
-        """
-        Primeiro tenta requests com cookies.
-        Se falhar, abre Selenium (somente 1ª vez), salva cookies e repete requests.
-        """
-        # 1) tenta requests direto
-        if self.cookies:
-            resp = requests.get(url, headers=self.headers, cookies=self.cookies)
-            if resp.status_code == 200 and "verificando" not in resp.text.lower():
-                return resp.text
-            else:
-                print("[Imperio] Cookies inválidos, refazendo login com Selenium...")
-
-        # 2) abre Selenium somente se necessário
-        options = uc.ChromeOptions()
-        options.add_argument("--disable-blink-features=AutomationControlled")
-        options.add_argument(f"user-agent={self.headers['User-Agent']}")
-        options.add_argument("--disable-extensions")
-        options.add_argument("--disable-popup-blocking")
-
-        driver = uc.Chrome(options=options, headless=headless)
-        try:
-            driver.get(url)
-            time.sleep(10)
-
-            attempts = 0
-            while "verificando" in driver.page_source.lower() and attempts < 5:
-                print("[Cloudflare] Aguardando Turnstile ser liberado...")
-                time.sleep(5)
-                attempts += 1
-
-            # salva cookies
-            self._save_cookies(driver)
-            self.cookies = {c["name"]: c["value"] for c in driver.get_cookies()}
-
-            return driver.page_source
-        finally:
-            driver.quit()
-
-    # ------------------ Override WordPressMadara methods ------------------
     def getManga(self, link: str) -> Manga:
-        html = self._get_html(link)
-        soup = BeautifulSoup(html, 'html.parser')
+        response = Http.get(link, timeout=getattr(self, 'timeout', None))
 
-        h1 = soup.select_one("div#manga-title h1")
-        if h1:
-            title = ''.join([t for t in h1.contents if isinstance(t, str)]).strip()
-        else:
-            element = soup.select_one(self.query_title_for_uri)
-            title = element['content'].strip() if element and 'content' in element.attrs else element.text.strip()
+        if not response or not getattr(response, "text", None):
+            raise Exception(f"Falha ao acessar {link} - status: {getattr(response, 'status_code', '??')}")
+
+        from bs4 import BeautifulSoup
+        soup = BeautifulSoup(response.content, "html.parser")
+
+        data = soup.select(self.query_title_for_uri)
+        if not data:
+            print(f"[DEBUG] Nenhum elemento encontrado com selector '{self.query_title_for_uri}'")
+            print(f"[DEBUG] HTML retornado (primeiros 300 chars):\n{response.text[:300]}...")
+            raise Exception("Não foi possível extrair o título do mangá")
+
+        element = data.pop()
+        title = element.get("content", "").strip() or element.text.strip()
+
+        if not title:
+            raise Exception("Título vazio ou não encontrado")
 
         return Manga(id=link, name=title)
 
-    def getChapters(self, id: str):
-        if not id.endswith('/'):
-            id += '/'
-        url = urljoin(self.url, id)
-        html = self._get_html(url)
-        soup = BeautifulSoup(html, 'html.parser')
-
-        elements = soup.select("ul.main.version-chap.no-volumn.active li.wp-manga-chapter a")
-        chs = []
-        ch_name = soup.select_one(self.query_title_for_uri).text.strip()
-
-        for el in elements:
-            ch_id = self.get_root_relative_or_absolute_link(el, url)
-            ch_number = el.text.strip()
-            chs.append(Chapter(ch_id, ch_number, ch_name))
-
-        chs.reverse()
-        return chs
-
-    def getPages(self, ch: Chapter) -> Pages:
-        url = urljoin(self.url, ch.id)
-        url = self._add_query_params(url, {'style': 'list'})
-        html = self._get_html(url)
-        soup = BeautifulSoup(html, 'html.parser')
-        data = soup.select(self.query_pages)
-        if not data:
-            url = self._remove_query_params(url, ['style'])
-            html = self._get_html(url)
-            soup = BeautifulSoup(html, 'html.parser')
-            data = soup.select(self.query_pages)
-
-        pages_list = []
-        for el in data:
-            pages_list.append(self._process_page_element(el, url))
-
-        number = re.findall(r'\d+\.?\d*', str(ch.number))[0]
-        return Pages(ch.id, number, ch.name, pages_list)
 
     def download(self, pages: Pages, fn: any, headers=None, cookies=None):
-        print(f"[Imperio] Iniciando download de {len(pages)} páginas")
-        return DownloadUseCase().execute(
-            pages=pages,
-            fn=fn,
-            headers=headers or self.headers,
-            cookies=cookies or self.cookies
-        )
+        if headers is not None:
+            headers = headers | self.headers
+        else:
+            headers = self.headers
+        return DownloadUseCase().execute(pages=pages, fn=fn, headers=headers, cookies=cookies)
+    
+    def _get_chapters_ajax(self, manga_id):
+        uri = urljoin(self.url, f'{manga_id}ajax/chapters/')
+        response = Http.post(uri, headers={'Cookie': 'visited=true; wpmanga-reading-history=W3siaWQiOjg4MiwiYyI6IjIzMzU5IiwicCI6MSwiaSI6IiIsInQiOjE3MTk5NjEwODN9XQ%3D%3D'})
+        data = self._fetch_dom(response, self.query_chapters)
+        if data:
+            return data
+        else:
+            raise Exception('No chapters found (new ajax endpoint)!')
+
+        
+

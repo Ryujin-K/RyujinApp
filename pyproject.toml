@@ -2,7 +2,7 @@
 name = "RyujinApp"
 version = "1.0.0"
 description = ""
-authors = ["Ryujin <kashiko.ryujin@gmail.com>"]
+authors = ["Ryujin <kashikoi.ryujin@gmail.com>"]
 readme = "README.md"
 packages = [{ include = "scripts/*" }]
 

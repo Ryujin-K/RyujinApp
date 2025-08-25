@@ -1,7 +1,7 @@
-import requests
+from typing import List
 from core.providers.infra.template.base import Base
 from core.providers.domain.entities import Manga, Chapter, Pages
-
+from core.__seedwork.infra.http import Http
 
 
 class MediocreToonsProvider(Base):
@@ -19,85 +19,66 @@ class MediocreToonsProvider(Base):
         if isinstance(url_or_id, int):
             return str(url_or_id)
         url_str = str(url_or_id)
-
         if url_str.isdigit():
             return url_str
         
         parts = url_str.strip("/").split("/")
-
         if len(parts) >= 2:
-            # O penúltimo segmento deve ser o ID
-            potential_id = parts[-2]  # Penúltimo elemento
+            potential_id = parts[-2]
             if potential_id.isdigit():
                 return potential_id
         
         raise ValueError(f"Não foi possível extrair o ID da URL: {url_or_id}")
 
     def _get_json(self, url: str) -> dict:
-        """Faz uma requisição GET para a URL e retorna os dados JSON."""
+        """Usa o Http para fazer GET e retorna JSON"""
         headers = {
-            'Accept': 'application/json',
-            'Accept-Language': 'pt-BR,pt;q=0.9,en-US;q=0.8,en;q=0.7',
-            'Cache-Control': 'no-cache',
-            'Origin': self.webBase,
-            'Referer': f'{self.webBase}/',
-            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/119.0.0.0 Safari/537.36',
-            'Sec-Fetch-Dest': 'empty',
-            'Sec-Fetch-Mode': 'cors',
-            'Sec-Fetch-Site': 'same-site'
+            "Accept": "application/json",
+            "Origin": self.webBase,
+            "Referer": f"{self.webBase}/"
         }
-
-        try:
-            response = requests.get(url, headers=headers, timeout=10)
-            response.raise_for_status()
-            return response.json()
-        except requests.exceptions.RequestException as e:
-            raise Exception(f"Erro ao acessar a API: {str(e)}")
+        response = Http.get(url, headers=headers, timeout=10)
+        return response.json()
 
     def getManga(self, manga_url_or_id: str) -> Manga:
         manga_id = self._extract_id(manga_url_or_id)
         data = self._get_json(f"{self.base}/obras/{manga_id}")
+        return Manga(id=str(data["id"]), name=data["nome"])
 
-        return Manga(
-            id=data["id"],
-            name=data["nome"]
-        )
-
-    def getChapters(self, manga_url_or_id: str) -> list[Chapter]:
+    def getChapters(self, manga_url_or_id: str) -> List[Chapter]:
         manga_id = self._extract_id(manga_url_or_id)
         data = self._get_json(f"{self.base}/obras/{manga_id}")
+        manga_name = data["nome"]
 
-        chapters = [
-            Chapter(
-                id=ch["id"],
-                name=f"Capítulo {ch['numero']}",
-                number=ch["numero"]
+        chapters_list = []
+        for ch in data.get("capitulos", []):
+            chapters_list.append(
+                Chapter(
+                    id=str(ch["id"]),
+                    name=manga_name,
+                    number=ch["numero"]
+                )
             )
-            for ch in data.get("capitulos", [])
-        ]
 
-        # Ordena os capítulos pelo número
-        chapters.sort(key=lambda c: int(c.number))
-
-        return chapters
-
+        # Ordena pelo número do capítulo
+        chapters_list.sort(key=lambda c: int(c.number))
+        return chapters_list
 
     def getPages(self, ch: Chapter) -> Pages:
-        chapter_id = ch.id
-        data = self._get_json(f"{self.base}/capitulos/{chapter_id}")
-
+        data = self._get_json(f"{self.base}/capitulos/{ch.id}")
         obra_id = str(data["obra"]["id"])
-        numero_capitulo = str(data["numero"])
-        nome_capitulo = str(data["nome"])
+        #numero_capitulo = str(data["numero"])
+        #nome_capitulo = ch.name
+        #nome_obra = ch.name
 
         imagens = [
-            f"{self.cdn}/obras/{obra_id}/capitulos/{numero_capitulo}/{p['src']}"
+            f"{self.cdn}/obras/{obra_id}/capitulos/{ch.number}/{p['src']}"
             for p in data.get("paginas", [])
         ]
 
         return Pages(
-            id=str(chapter_id),
-            number=numero_capitulo,
-            name=nome_capitulo,
+            id=str(ch.id),
+            number=ch.number,
+            name=ch.name,
             pages=imagens
         )

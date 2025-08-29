@@ -2,7 +2,6 @@ import PyInstaller.__main__
 from pathlib import Path
 from sys import platform
 import os
-from PyInstaller.utils.hooks import collect_dynamic_libs
 
 is_posix = platform.startswith(("darwin", "cygwin", "linux", "linux2"))
 is_mac = platform.startswith('darwin')
@@ -23,7 +22,6 @@ args = [
     '--noconsole',
     '--collect-all=PyQt6',
     '--collect-all=nodriver',
-    '--collect-all=undetected_chromedriver',
     '--collect-all=bs4',
     '--collect-all=cv2',
     '--collect-all=cloudscraper',

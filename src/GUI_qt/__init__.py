@@ -22,6 +22,11 @@ if __name__ == "__main__":
 
         app = QApplication(sys.argv)
 
+        qss_path = os.path.join(base_path(), "GUI_qt", "assets", "styles.qss")
+        if os.path.exists(qss_path):
+            with open(qss_path, "r", encoding="utf-8") as f:
+                app.setStyleSheet(f.read())
+
         loading_window = LoadingWindow()
         loading_window.show()
 

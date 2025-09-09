@@ -1,8 +1,8 @@
 [tool.poetry]
 name = "RyujinApp"
-version = "1.0.0"
+version = "0.1.0"
 description = ""
-authors = ["Ryujin <kashikoi.ryujin@gmail.com>"]
+authors = ["lyem <rfael403@gmail.com>"]
 readme = "README.md"
 packages = [{ include = "scripts/*" }]
 

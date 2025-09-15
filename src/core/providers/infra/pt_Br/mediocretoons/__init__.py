@@ -15,20 +15,28 @@ class MediocreToonsProvider(Base):
         self.webBase = "https://mediocretoons.com"
 
     def _extract_id(self, url_or_id) -> str:
-        """Extrai o ID numérico da URL (penúltimo segmento)"""
-        if isinstance(url_or_id, int):
+        """Aceita ID numérico, decimal ou string"""
+        if isinstance(url_or_id, (int, float)):
             return str(url_or_id)
-        url_str = str(url_or_id)
-        if url_str.isdigit():
+
+        url_str = str(url_or_id).strip()
+
+        try:
+            float(url_str)
             return url_str
-        
+        except ValueError:
+            pass
+
         parts = url_str.strip("/").split("/")
         if len(parts) >= 2:
             potential_id = parts[-2]
-            if potential_id.isdigit():
+            try:
+                float(potential_id)
                 return potential_id
-        
-        raise ValueError(f"Não foi possível extrair o ID da URL: {url_or_id}")
+            except ValueError:
+                pass
+
+        return url_str
 
     def _get_json(self, url: str) -> dict:
         """Usa o Http para fazer GET e retorna JSON"""
@@ -50,18 +58,23 @@ class MediocreToonsProvider(Base):
         data = self._get_json(f"{self.base}/obras/{manga_id}")
         manga_name = data["nome"]
 
-        chapters_list = []
-        for ch in data.get("capitulos", []):
-            chapters_list.append(
-                Chapter(
-                    id=str(ch["id"]),
-                    name=manga_name,
-                    number=ch["numero"]
-                )
+        chapters_list = [
+            Chapter(
+                id=str(ch["id"]),
+                name=manga_name,
+                number=str(ch["numero"])
             )
+            for ch in data.get("capitulos", [])
+        ]
 
-        # Ordena pelo número do capítulo
-        chapters_list.sort(key=lambda c: int(c.number))
+        # Ordena: números primeiro (inteiros/decimais), depois strings
+        def sort_key(c: Chapter):
+            try:
+                return (0, float(c.number))  # números
+            except ValueError:
+                return (1, c.number.lower())  # strings
+
+        chapters_list.sort(key=sort_key)
         return chapters_list
 
     def getPages(self, ch: Chapter) -> Pages:

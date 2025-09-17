@@ -10,16 +10,17 @@ data_path = user_data_path('RyujinApp')
 
 def base_path():
     """ Retorna o caminho absoluto para a pasta 'src' da aplicação. """
+    import sys
     try:
         if getattr(sys, 'frozen', False):
+            # Quando empacotado, os dados ficam no mesmo diretório do executável
             application_path = os.path.dirname(sys.executable)
-            return Path(application_path) / 'src'
-        
+            return Path(application_path)
         script_path = Path(__file__).resolve()
         src_folder = script_path.parent.parent.parent
         return src_folder
     except NameError:
-        return Path('.') / 'src'
+        return Path('.')
 
 package_path = os.path.join(base_path(), 'core', 'providers', 'infra')
 ignore_folders = ['template', '__pycache__']

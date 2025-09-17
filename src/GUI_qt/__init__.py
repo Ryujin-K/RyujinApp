@@ -15,7 +15,7 @@ sys.excepthook = global_exception_handler
 if __name__ == "__main__":
     try:
         try:
-            import pyi_splash # type: ignore
+            import pyi_splash 
             pyi_splash.close()
         except:
             pass
@@ -29,19 +29,19 @@ if __name__ == "__main__":
 
         loading_window = LoadingWindow()
         loading_window.show()
+        main_app = MangaDownloaderMainWindow(app)
 
         update_thread = UpdateThread()
         
-        def start_main_app():
+        def show_main_app():
             try:
-                main_app = MangaDownloaderMainWindow(app)
                 loading_window.close()
                 main_app.window.show()
             except Exception as e:
-                print(f"Erro ao iniciar aplicação principal: {e}")
+                print(f"Erro ao exibir aplicação principal: {e}")
                 global_exception_handler(type(e), e, e.__traceback__)
 
-        update_thread.finished.connect(start_main_app)
+        update_thread.finished.connect(show_main_app)
         update_thread.start()
 
         sys.exit(app.exec())

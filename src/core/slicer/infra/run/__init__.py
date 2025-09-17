@@ -8,7 +8,7 @@ from PIL import Image as pil
 pil.Image.MAX_IMAGE_PIXELS = 933120000
 from core.config.img_conf import get_config
 from core.slicer.infra.detectors import select_detector
-from core.download.domain.dowload_entity import Chapter
+from core.download.domain.download_entity import Chapter
 from core.slicer.infra.utils.constants import WIDTH_ENFORCEMENT
 from core.slicer.infra.services import ImageHandler, ImageManipulator
 from core.__seedwork.infra.utils.sanitize_folder import sanitize_folder_name

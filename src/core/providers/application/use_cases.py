@@ -1,7 +1,7 @@
 from typing import List
 from core.__seedwork.application.use_cases import UseCase
 from core.providers.domain.entities import Chapter, Pages, Manga
-from core.download.domain.dowload_entity import Chapter as ChapterDw
+from core.download.domain.download_entity import Chapter as ChapterDw
 from core.providers.domain.provider_repository import ProviderRepository
 
 class ProviderLoginUseCase(UseCase):

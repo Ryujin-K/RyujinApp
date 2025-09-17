@@ -1,4 +1,4 @@
-from .dowload_entity import Chapter
+from .download_entity import Chapter
 from abc import ABC
 from core.providers.domain.page_entity import Pages
 

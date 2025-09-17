@@ -1,5 +1,5 @@
 from core.group_imgs.infra import GroupImages
-from core.download.domain.dowload_entity import Chapter
+from core.download.domain.download_entity import Chapter
 from core.__seedwork.application.use_cases import UseCase
 
 

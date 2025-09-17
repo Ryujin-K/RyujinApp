@@ -7,8 +7,8 @@ from io import BytesIO
 from core.config.img_conf import get_config
 from core.__seedwork.infra.http import Http
 from core.providers.domain.page_entity import Pages
-from core.download.domain.dowload_entity import Chapter
-from core.download.domain.dowload_repository import DownloadRepository
+from core.download.domain.download_entity import Chapter
+from core.download.domain.download_repository import DownloadRepository
 from core.__seedwork.infra.utils.sanitize_folder import sanitize_folder_name
 Image.MAX_IMAGE_PIXELS = 933120000
 from typing import List

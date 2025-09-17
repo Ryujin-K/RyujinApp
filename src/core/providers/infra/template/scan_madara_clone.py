@@ -13,7 +13,7 @@ from core.__seedwork.infra.http import Http
 from core.config.img_conf import get_config
 from core.providers.infra.template.base import Base
 from core.providers.domain.entities import Chapter, Pages, Manga
-from core.download.domain.dowload_entity import Chapter as DChapter
+from core.download.domain.download_entity import Chapter as DChapter
 from core.__seedwork.infra.utils.sanitize_folder import sanitize_folder_name
 Image.MAX_IMAGE_PIXELS = 933120000
 

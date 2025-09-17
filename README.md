@@ -8,6 +8,7 @@
 A cross-platform manga downloader for **Linux and Windows**, using [Pyneko](https://github.com/Lyem/Pyneko) base code, that´s  based on [HakuNeko](https://github.com/manga-download/hakuneko). It incorporates code from **SmartStitch** for advanced image slicing, ensuring fast and seamless downloads.
 
 [![Download](https://img.shields.io/badge/Download-Latest_Release-blue.svg)](https://github.com/Ryujin-K/RyujinApp/releases)
+[![Discord Server](https://img.shields.io/discord/ID_DO_SERVIDOR?label=Ryujin%20Community&logo=discord&logoColor=white&color=5865F2)](https://discord.gg/SEU_INVITE)
 
 ## Dependencies  
 

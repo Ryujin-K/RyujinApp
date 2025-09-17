@@ -15,7 +15,7 @@ sys.excepthook = global_exception_handler
 if __name__ == "__main__":
     try:
         try:
-            import pyi_splash 
+            import pyi_splash # type: ignore
             pyi_splash.close()
         except:
             pass

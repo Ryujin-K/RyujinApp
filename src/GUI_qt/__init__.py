@@ -4,7 +4,7 @@ import json
 import traceback
 from PyQt6.QtWidgets import QApplication, QMessageBox
 from GUI_qt.utils.error_handler import global_exception_handler
-from GUI_qt.utils.load_providers import base_path
+from GUI_qt.utils.load_providers import base_path, find_assets_path
 from GUI_qt.utils.config import get_config
 from GUI_qt.windows.loading import LoadingWindow
 from GUI_qt.windows.main_window import MangaDownloaderMainWindow
@@ -22,7 +22,7 @@ if __name__ == "__main__":
 
         app = QApplication(sys.argv)
 
-        qss_path = os.path.join(base_path(), "GUI_qt", "assets", "styles.qss")
+        qss_path = os.path.join(find_assets_path(), "styles.qss")
         if os.path.exists(qss_path):
             with open(qss_path, "r", encoding="utf-8") as f:
                 app.setStyleSheet(f.read())
@@ -38,7 +38,7 @@ if __name__ == "__main__":
                 loading_window.close()
                 main_app.window.show()
             except Exception as e:
-                print(f"Erro ao exibir aplicação principal: {e}")
+                print(f"Error displaying main application: {e}")
                 global_exception_handler(type(e), e, e.__traceback__)
 
         update_thread.finished.connect(show_main_app)
@@ -47,7 +47,7 @@ if __name__ == "__main__":
         sys.exit(app.exec())
         
     except Exception as e:
-        print(f"Erro crítico na inicialização: {e}")
+        print(f"Critical error during initialization: {e}")
         print(f"Traceback: {traceback.format_exc()}")
         
         try:
@@ -87,9 +87,9 @@ if __name__ == "__main__":
                 if app is None:
                     app = QApplication(sys.argv)
                     
-                QMessageBox.critical(None, "Erro Crítico", 
-                                   f"Erro fatal na aplicação:\n{str(e)}\n\nVerifique os logs para mais detalhes.")
+                QMessageBox.critical(None, "Critical Error", 
+                                   f"Fatal error in application:\n{str(e)}\n\nCheck the logs for more details.")
             except:
-                print("ERRO FATAL: Não foi possível exibir interface de erro")
-                print(f"Erro: {e}")
+                print("FATAL ERROR: Could not display error interface")
+                print(f"Error: {e}")
                 sys.exit(1)

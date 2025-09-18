@@ -13,14 +13,75 @@ def base_path():
     import sys
     try:
         if getattr(sys, 'frozen', False):
-            # Quando empacotado, os dados ficam no mesmo diretório do executável
+            # When packaged, the data is in the same directory as the executable.
             application_path = os.path.dirname(sys.executable)
+            # Check if there is a 'src' folder in the executable directory
+            src_path = Path(application_path) / 'src'
+            if src_path.exists():
+                return src_path
+            # If it doesn't exist, assume the executable is at the root of the project
             return Path(application_path)
         script_path = Path(__file__).resolve()
         src_folder = script_path.parent.parent.parent
         return src_folder
     except NameError:
         return Path('.')
+
+def find_assets_path():
+    """
+    Find the path to the assets folder.
+    Try different possible locations where the assets might be.
+    """
+    import sys
+    
+    possible_paths = []
+    
+    # Using base_path() (original method)
+    try:
+        current_dir = os.path.join(base_path(), 'GUI_qt')
+        assets_path = os.path.join(current_dir, 'assets')
+        possible_paths.append(assets_path)
+    except:
+        pass
+
+    # Relative to the executable directory (for compiled versions)
+    if getattr(sys, 'frozen', False):
+        exe_dir = os.path.dirname(sys.executable)
+        possible_paths.extend([
+            os.path.join(exe_dir, 'GUI_qt', 'assets'),
+            os.path.join(exe_dir, 'src', 'GUI_qt', 'assets'),
+            os.path.join(exe_dir, 'assets'),
+        ])
+
+    # Relative to the current file
+    try:
+        current_file_dir = os.path.dirname(os.path.abspath(__file__))
+        possible_paths.extend([
+            os.path.join(current_file_dir, '..', 'assets'),
+            os.path.join(current_file_dir, '..', '..', 'GUI_qt', 'assets'),
+        ])
+    except:
+        pass
+
+    # Based on the current working directory
+    cwd = os.getcwd()
+    possible_paths.extend([
+        os.path.join(cwd, 'GUI_qt', 'assets'),
+        os.path.join(cwd, 'src', 'GUI_qt', 'assets'),
+        os.path.join(cwd, 'assets'),
+    ])
+
+    # Find the first valid path that contains at least styles.qss or main.ui
+    for path in possible_paths:
+        normalized_path = os.path.normpath(path)
+        if os.path.exists(normalized_path) and (
+            os.path.exists(os.path.join(normalized_path, 'main.ui')) or
+            os.path.exists(os.path.join(normalized_path, 'styles.qss'))
+        ):
+            return normalized_path
+
+    # If no path was found, return the first one in the list and let the original error show
+    return os.path.normpath(possible_paths[0]) if possible_paths else os.path.join(os.getcwd(), 'GUI_qt', 'assets')
 
 package_path = os.path.join(base_path(), 'core', 'providers', 'infra')
 ignore_folders = ['template', '__pycache__']

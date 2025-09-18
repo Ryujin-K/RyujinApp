@@ -30,7 +30,6 @@ args = [
     '--collect-all=cairosvg',
     '--collect-all=pillow_avif',
     f'--icon=assets/icon.ico',
-    '--exclude-module=tests',
     f'--add-data=src/core/providers/infra{separator}core/providers/infra',
     f'--add-data=src/core/__seedwork/infra{separator}core/__seedwork/infra',
     f'--add-data=src/core/cloudflare{separator}core/cloudflare',

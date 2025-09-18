@@ -4,7 +4,7 @@ import json
 import traceback
 from PyQt6.QtWidgets import QApplication, QMessageBox
 from GUI_qt.utils.error_handler import global_exception_handler
-from GUI_qt.utils.load_providers import base_path, find_assets_path
+from GUI_qt.utils.load_providers import base_path
 from GUI_qt.utils.config import get_config
 from GUI_qt.windows.loading import LoadingWindow
 from GUI_qt.windows.main_window import MangaDownloaderMainWindow
@@ -22,7 +22,7 @@ if __name__ == "__main__":
 
         app = QApplication(sys.argv)
 
-        qss_path = os.path.join(find_assets_path(), "styles.qss")
+        qss_path = os.path.join(base_path(), "GUI_qt", "assets", "styles.qss")
         if os.path.exists(qss_path):
             with open(qss_path, "r", encoding="utf-8") as f:
                 app.setStyleSheet(f.read())
@@ -53,7 +53,7 @@ if __name__ == "__main__":
         try:
             config = get_config()
             translations = {}
-            assets_path = os.path.join(os.path.join(base_path(), 'GUI_qt'), 'assets')
+            assets_path = os.path.join(base_path(), "GUI_qt", "assets")
             
             with open(os.path.join(assets_path, 'translations.json'), 'r', encoding='utf-8') as file:
                 translations = json.load(file)

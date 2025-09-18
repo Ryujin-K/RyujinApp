@@ -24,8 +24,7 @@ class DownloadWorker(QRunnable):
         self.chapter = chapter
         self.provider = provider
         self.signals = DownloadWorkerSignals()
-        self.current_dir = os.path.join(base_path(), 'GUI_qt')
-        self.assets = os.path.join(self.current_dir, 'assets')
+        self.assets = os.path.join(base_path(), "GUI_qt", "assets")
 
     def run(self):
         try:

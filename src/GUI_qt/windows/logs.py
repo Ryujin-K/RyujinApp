@@ -2,11 +2,11 @@ import os
 import sys
 from PyQt6.QtGui import QIcon
 from PyQt6.QtGui import QTextCursor
-from GUI_qt.utils.load_providers import find_assets_path
+from GUI_qt.utils.load_providers import base_path
 from PyQt6.QtCore import QObject, pyqtSignal, QThread
 from PyQt6.QtWidgets import QWidget, QVBoxLayout, QTextEdit, QPushButton
 
-assets = find_assets_path()
+assets = os.path.join(base_path(), "GUI_qt", "assets")
 
 class LogEmitter(QObject):
     log_signal = pyqtSignal(str)

@@ -1,6 +1,5 @@
 import os
 import traceback
-import time 
 from PyQt6.QtCore import QRunnable, pyqtSignal, QObject
 from core.config.img_conf import get_config as get_img_config
 from core.config.login_data import delete_login
@@ -30,25 +29,20 @@ class DownloadWorker(QRunnable):
 
     def run(self):
         try:
-            print(f"\n[DEBUG] Início do DownloadWorker para o capítulo: {self.chapter.number} do provedor {self.provider.name}")
-            time.sleep(0.1)
+            print(f"[DOWNLOAD] 🚀 Starting download: {self.chapter.number} ({self.provider.name})")
 
             img_conf = get_img_config()
             conf = get_config()
             
             try:
-                print("[DEBUG] Passo 1: Obtendo a lista de páginas...")
-                time.sleep(0.1)
-
+                print(f"[DOWNLOAD] 📥 Obtaining pages for chapter {self.chapter.number}...")
                 pages = ProviderGetPagesUseCase(self.provider).execute(self.chapter)
-
-                print(f"[DEBUG] Passo 1 concluído. {len(pages.pages)} páginas encontradas.")
-                time.sleep(0.1)
+                print(f"[DOWNLOAD] ✅ {len(pages.pages)} pages found.")
 
             except Exception as e:
-                print("\n--- ERRO OCORREU EM 'ProviderGetPagesUseCase' ---")
+                print(f"[DOWNLOAD] ❌ Error obtaining pages: {str(e)}")
                 traceback.print_exc()
-                self.signals.download_error.emit(f'{self.chapter.name} \n {self.chapter.number} \n Erro ao obter páginas: {str(e)}')
+                self.signals.download_error.emit(f'{self.chapter.name} \n {self.chapter.number} \n Error obtaining pages: {str(e)}')
                 return
             
             translations = {}
@@ -68,50 +62,45 @@ class DownloadWorker(QRunnable):
                 try:
                     self.signals.progress_changed.emit(int(value))
                 except Exception as e:
-                    print(f"Erro ao atualizar barra de progresso: {e}")
+                    print(f"[DOWNLOAD] ⚠️ Progress bar error: {e}")
 
             try:
-                print("[DEBUG] Passo 2: Iniciando o download das imagens...")
-                time.sleep(0.1)
-
+                print(f"[DOWNLOAD] 💾 Downloading {len(pages.pages)} images...")
                 ch = ProviderDownloadUseCase(self.provider).execute(pages=pages, fn=update_progress_bar)
-
-                print("[DEBUG] Passo 2 concluído. Download finalizado.")
-                time.sleep(0.1)
+                print(f"[DOWNLOAD] ✅ Download completed: {self.chapter.number}")
 
             except Exception as e:
-                print("\n--- ERRO OCORREU EM 'ProviderDownloadUseCase' ---")
+                print(f"[DOWNLOAD] ❌ Error downloading: {str(e)}")
                 traceback.print_exc()
                 self.signals.download_error.emit(f'{self.chapter.name} \n {self.chapter.number} \n Erro no download: {str(e)}')
                 delete_login(self.provider.domain[0])
                 return
 
             if img_conf.slice:
-                print("[DEBUG] Passo 3: Iniciando o Slicer...")
-                time.sleep(0.1)
+                print(f"[DOWNLOAD] ✂️ Starting slicer for: {self.chapter.number}")
                 self.signals.name.emit(translation['slicing'])
                 self.signals.progress_changed.emit(0)
                 set_progress_bar_style("#0080FF")
                 ch = SlicerUseCase().execute(ch, update_progress_bar)
+                print(f"[DOWNLOAD] ✅ Slicer completed: {self.chapter.number}")
 
             if img_conf.group:
-                print("[DEBUG] Passo 4: Iniciando o Agrupamento...")
-                time.sleep(0.1)
+                print(f"[DOWNLOAD] 📦 Starting grouping for: {self.chapter.number}")
                 self.signals.name.emit(translation['grouping'])
                 self.signals.progress_changed.emit(0)
                 set_progress_bar_style("#FFA500")
                 GroupImgsUseCase().execute(ch, update_progress_bar)
                 self.signals.progress_changed.emit(100)
-            
-            print(f"[DEBUG] Fim do DownloadWorker para o capítulo: {self.chapter.number}. Tudo concluído.")
-            time.sleep(0.1)
+                print(f"[DOWNLOAD] ✅ Grouping completed: {self.chapter.number}")
+
+            print(f"[DOWNLOAD] 🎉 Processing complete: {self.chapter.number}")
 
         except Exception as e:
-            print("\n--- ERRO GERAL CRÍTICO NO DOWNLOAD WORKER ---")
+            print(f"[DOWNLOAD] 💥 Critical error: {self.chapter.number} - {str(e)}")
             traceback.print_exc()
             try:
                 set_progress_bar_style("red")
-                self.signals.download_error.emit(f'{self.chapter.name} \n {self.chapter.number} \n Erro geral: {str(e)}')
+                self.signals.download_error.emit(f'{self.chapter.name} \n {self.chapter.number} \n General error: {str(e)}')
                 delete_login(self.provider.domain[0])
             except:
                 pass

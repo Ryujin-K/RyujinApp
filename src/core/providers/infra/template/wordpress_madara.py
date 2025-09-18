@@ -5,6 +5,7 @@ from core.__seedwork.infra.http import Http
 from core.providers.infra.template.base import Base
 from core.__seedwork.infra.http.contract.http import Response
 from core.providers.domain.entities import Chapter, Pages, Manga
+from core.providers.infra.template.scraper_logger import ScraperLogger
 from urllib.parse import urljoin, urlencode, urlparse, urlunparse, parse_qs
 
 class WordPressMadara(Base):
@@ -19,61 +20,172 @@ class WordPressMadara(Base):
         self.query_title_for_uri = 'head meta[property="og:title"]'
         self.query_placeholder = '[id^="manga-chapters-holder"][data-id]'
         self.timeout=None
+        
+        super().__init__()  # Chama o init da base que já faz o log
+        ScraperLogger.debug(self.name, "init", "Configurações do Madara", 
+                           selectors={
+                               "mangas": self.query_mangas,
+                               "chapters": self.query_chapters, 
+                               "pages": self.query_pages,
+                               "title": self.query_title_for_uri
+                           })
 
     def getManga(self, link: str) -> Manga:
-        response = Http.get(link, timeout=getattr(self, 'timeout', None))
-        soup = BeautifulSoup(response.content, 'html.parser')
-        data = soup.select(self.query_title_for_uri)
-        element = data.pop()
-        title = element['content'].strip() if 'content' in element.attrs else element.text.strip()
-        return Manga(id=link, name=title)
+        ScraperLogger.info(self.name, "getManga", "Iniciando busca de manga", url=link)
+        
+        try:
+            response = Http.get(link, timeout=getattr(self, 'timeout', None))
+            ScraperLogger.http_request(self.name, "GET", link, response.status)
+            
+            soup = BeautifulSoup(response.content, 'html.parser')
+            data = soup.select(self.query_title_for_uri)
+            ScraperLogger.parsing(self.name, self.query_title_for_uri, len(data), 1)
+            
+            if not data:
+                ScraperLogger.error(self.name, "getManga", "Título não encontrado", 
+                                  selector=self.query_title_for_uri)
+                raise ValueError("Título do manga não encontrado")
+            
+            element = data.pop()
+            title = element['content'].strip() if 'content' in element.attrs else element.text.strip()
+            
+            ScraperLogger.success(self.name, "getManga", "Manga encontrado", 
+                                title=title, manga_id=link)
+            return Manga(id=link, name=title)
+            
+        except Exception as e:
+            ScraperLogger.error(self.name, "getManga", "Falha ao buscar manga", exception=e, url=link)
+            raise
 
     def getChapters(self, id: str) -> List[Chapter]:
-        uri = urljoin(self.url, id)
-        response = Http.get(uri, timeout=getattr(self, 'timeout', None))
-        soup = BeautifulSoup(response.content, 'html.parser')
-        data = soup.select(self.query_title_for_uri)
-        element = data.pop()
-        title = element['content'].strip() if 'content' in element.attrs else element.text.strip()
-        dom = soup.select('body')[0]
-        data = dom.select(self.query_chapters)
-        placeholder = dom.select_one(self.query_placeholder)
-        if placeholder:
-            try:
-                data = self._get_chapters_ajax(id)
-            except Exception:
+        ScraperLogger.info(self.name, "getChapters", "Iniciando busca de capítulos", manga_id=id)
+        
+        try:
+            uri = urljoin(self.url, id)
+            ScraperLogger.debug(self.name, "getChapters", "URL construída", full_url=uri)
+            
+            response = Http.get(uri, timeout=getattr(self, 'timeout', None))
+            ScraperLogger.http_request(self.name, "GET", uri, response.status)
+            
+            soup = BeautifulSoup(response.content, 'html.parser')
+            data = soup.select(self.query_title_for_uri)
+            ScraperLogger.parsing(self.name, self.query_title_for_uri, len(data), 1)
+            
+            if not data:
+                ScraperLogger.warning(self.name, "getChapters", "Título não encontrado, usando ID como fallback")
+                title = id
+            else:
+                element = data.pop()
+                title = element['content'].strip() if 'content' in element.attrs else element.text.strip()
+                ScraperLogger.debug(self.name, "getChapters", "Título extraído", title=title)
+            
+            dom = soup.select('body')[0]
+            data = dom.select(self.query_chapters)
+            ScraperLogger.parsing(self.name, self.query_chapters, len(data), 0, 
+                                context="capítulos básicos")
+            
+            placeholder = dom.select_one(self.query_placeholder)
+            if placeholder:
+                ScraperLogger.info(self.name, "getChapters", "Detectado sistema AJAX", 
+                                 placeholder_id=placeholder.get('data-id'))
                 try:
-                    data = self._get_chapters_ajax_old(placeholder['data-id'])
-                except Exception:
-                    pass
+                    data = self._get_chapters_ajax(id)
+                    ScraperLogger.success(self.name, "getChapters", "Capítulos AJAX carregados", 
+                                        count=len(data))
+                except Exception as ajax_error:
+                    ScraperLogger.warning(self.name, "getChapters", 
+                                        "Falha no AJAX novo, tentando método antigo", 
+                                        error=str(ajax_error))
+                    try:
+                        data = self._get_chapters_ajax_old(placeholder['data-id'])
+                        ScraperLogger.success(self.name, "getChapters", 
+                                            "Capítulos AJAX antigo carregados", count=len(data))
+                    except Exception as old_ajax_error:
+                        ScraperLogger.error(self.name, "getChapters", 
+                                          "Falha em ambos métodos AJAX, usando dados estáticos", 
+                                          error=str(old_ajax_error))
 
-        chs = []
-        for el in data:
-            ch_id = self.get_root_relative_or_absolute_link(el, uri)
-            ch_number = el.text.strip()
-            ch_name = title
-            chs.append(Chapter(ch_id, ch_number, ch_name))
+            chs = []
+            for i, el in enumerate(data):
+                try:
+                    ch_id = self.get_root_relative_or_absolute_link(el, uri)
+                    ch_number = el.text.strip()
+                    ch_name = title
+                    chs.append(Chapter(ch_id, ch_number, ch_name))
+                    
+                    if i < 3:  # Log apenas os primeiros 3 para não poluir
+                        ScraperLogger.debug(self.name, "getChapters", 
+                                          f"Capítulo {i+1} processado", 
+                                          number=ch_number, ch_id=ch_id[:50] + "...")
+                except Exception as ch_error:
+                    ScraperLogger.warning(self.name, "getChapters", 
+                                        f"Failed to process chapter {i+1}", 
+                                        error=str(ch_error), element=str(el)[:100])
 
-        chs.reverse()
-        return chs
+            chs.reverse()
+            ScraperLogger.success(self.name, "getChapters", "Chapters loaded", 
+                                total=len(chs), manga_title=title)
+            return chs
+            
+        except Exception as e:
+            ScraperLogger.error(self.name, "getChapters", "Failed to fetch chapters", 
+                              exception=e, manga_id=id)
+            raise
 
     def getPages(self, ch: Chapter) -> Pages:
-        uri = urljoin(self.url, ch.id)
-        uri = self._add_query_params(uri, {'style': 'list'})
-        response = Http.get(uri, timeout=getattr(self, 'timeout', None))
-        soup = BeautifulSoup(response.content, 'html.parser')
-        data = soup.select(self.query_pages)
-        if not data:
-            uri = self._remove_query_params(uri, ['style'])
+        ScraperLogger.info(self.name, "getPages", "Starting to fetch pages", 
+                         chapter=ch.number, chapter_id=ch.id)
+        
+        try:
+            uri = urljoin(self.url, ch.id)
+            uri = self._add_query_params(uri, {'style': 'list'})
+            ScraperLogger.debug(self.name, "getPages", "URL with style=list parameter", url=uri)
+            
             response = Http.get(uri, timeout=getattr(self, 'timeout', None))
+            ScraperLogger.http_request(self.name, "GET", uri, response.status)
+            
             soup = BeautifulSoup(response.content, 'html.parser')
             data = soup.select(self.query_pages)
-        list = [] 
-        for el in data:
-            list.append(self._process_page_element(el, uri))
+            ScraperLogger.parsing(self.name, self.query_pages, len(data), 0, 
+                                context="pages with style=list")
+            
+            if not data:
+                ScraperLogger.warning(self.name, "getPages", 
+                                    "No pages found with style=list, trying without it")
+                uri = self._remove_query_params(uri, ['style'])
+                response = Http.get(uri, timeout=getattr(self, 'timeout', None))
+                ScraperLogger.http_request(self.name, "GET", uri, response.status)
+                
+                soup = BeautifulSoup(response.content, 'html.parser')
+                data = soup.select(self.query_pages)
+                ScraperLogger.parsing(self.name, self.query_pages, len(data), 1, 
+                                    context="pages without style=list")
+            
+            list = [] 
+            for i, el in enumerate(data):
+                try:
+                    page_url = self._process_page_element(el, uri)
+                    list.append(page_url)
+                    
+                    if i < 3:  # Log only the first 3 pages
+                        ScraperLogger.debug(self.name, "getPages", 
+                                          f"Page {i+1} processed", 
+                                          url=page_url[:50] + "...")
+                except Exception as page_error:
+                    ScraperLogger.warning(self.name, "getPages", 
+                                        f"Failed to process page {i+1}", 
+                                        error=str(page_error))
 
-        number = re.findall(r'\d+\.?\d*', str(ch.number))[0]
-        return Pages(ch.id, number, ch.name, list)
+            number = re.findall(r'\d+\.?\d*', str(ch.number))[0]
+            
+            ScraperLogger.success(self.name, "getPages", "Pages loaded", 
+                                total=len(list), chapter=ch.number)
+            return Pages(ch.id, number, ch.name, list)
+            
+        except Exception as e:
+            ScraperLogger.error(self.name, "getPages", "Failed to fetch pages", 
+                              exception=e, chapter=ch.number)
+            raise
 
     def _create_manga_request(self, page):
         form = {

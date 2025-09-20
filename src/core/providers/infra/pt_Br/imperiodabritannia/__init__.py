@@ -12,7 +12,6 @@ class ImperiodabritanniaProvider(WordPressMadara):
 
     def __init__(self):
         self.url = 'https://imperiodabritannia.com/'
-
         self.path = ''
         
         self.query_mangas = 'div.post-title h3 a, div.post-title h5 a'
@@ -21,10 +20,25 @@ class ImperiodabritanniaProvider(WordPressMadara):
         self.query_pages = 'div.page-break.no-gaps'
         self.query_title_for_uri = 'head meta[property="og:title"]'
         self.query_placeholder = '[id^="manga-chapters-holder"][data-id]'
+        
         ua = UserAgent()
-        user = ua.chrome
-        self.user = ua.chrome
-        self.headers = {'host': 'imperiodabritannia.com', 'user_agent': user, 'referer': f'{self.url}', 'Cookie': 'acesso_legitimo=1'}
+        user_agent = ua.chrome
+        self.user = user_agent
+        self.headers = {
+            'Accept': '*/*',
+            'Accept-Language': 'en,pt;q=0.9,es-US;q=0.8,es-419;q=0.7,es;q=0.6',
+            'Cache-Control': 'no-cache',
+            'Origin': 'https://imperiodabritannia.com',
+            'Pragma': 'no-cache',
+            'Sec-Ch-Ua': '"Chromium";v="140", "Not=A?Brand";v="24", "Google Chrome";v="140"',
+            'Sec-Ch-Ua-Mobile': '?0',
+            'Sec-Ch-Ua-Platform': '"Windows"',
+            'Sec-Fetch-Dest': 'empty',
+            'Sec-Fetch-Mode': 'cors',
+            'Sec-Fetch-Site': 'same-origin',
+            'User-Agent': user_agent,
+            'X-Requested-With': 'XMLHttpRequest'
+        }
     
     def download(self, pages: Pages, fn: any, headers=None, cookies=None):
         if headers is not None:
@@ -34,10 +48,21 @@ class ImperiodabritanniaProvider(WordPressMadara):
         return DownloadUseCase().execute(pages=pages, fn=fn, headers=headers, cookies=cookies)
     
     def _get_chapters_ajax(self, manga_id):
-        uri = urljoin(self.url, f'{manga_id}ajax/chapters/')
-        response = Http.post(uri, headers={'Cookie': 'visited=true; wpmanga-reading-history=W3siaWQiOjg4MiwiYyI6IjIzMzU5IiwicCI6MSwiaSI6IiIsInQiOjE3MTk5NjEwODN9XQ%3D%3D'})
-        data = self._fetch_dom(response, self.query_chapters)
-        if data:
-            return data
+        if manga_id.startswith('http'):
+            manga_slug = manga_id.split('/manga/')[-1].rstrip('/')
         else:
-            raise Exception('No chapters found (new ajax endpoint)!')
+            manga_slug = manga_id.rstrip('/')
+        
+        uri = urljoin(self.url, f'manga/{manga_slug}/ajax/chapters/?t=1')
+        ajax_headers = self.headers.copy()
+        ajax_headers['Referer'] = f'https://imperiodabritannia.com/manga/{manga_slug}/'
+        
+        response = Http.post(uri, data='', headers=ajax_headers)
+        if response.status == 200:
+            from core.__seedwork.infra.http.contract.http import Response
+            fixed_response = Response(response.status, response.data, response.data, response.url)
+            data = self._fetch_dom(fixed_response, self.query_chapters)
+            if data:
+                return data
+                
+        raise Exception('No chapters found (ajax endpoint failed)!')

@@ -11,7 +11,7 @@
   Fast, reliable, and feature-rich manga downloading for Linux and Windows
   
   [![Download](https://img.shields.io/badge/Download-Latest_Release-blue.svg?style=for-the-badge)](https://github.com/Ryujin-K/RyujinApp/releases)
-  [![Discord](https://img.shields.io/badge/Discord-Join_Community-5865F2?style=for-the-badge&logo=discord&logoColor=white)](https://discord.gg/zhfWRqYY6B)
+  [![Discord](https://img.shields.io/badge/Discord-Join_Community-5865F2?style=for-the-badge&logo=discord&logoColor=white)](https://discord.gg/cTa5WbEsfS)
   
   [![Platform](https://img.shields.io/badge/Platform-Linux%20%7C%20Windows-lightgrey.svg?style=flat-square)](https://github.com/Ryujin-K/RyujinApp/releases)
   [![Python](https://img.shields.io/badge/Python-3.8+-blue.svg?style=flat-square&logo=python&logoColor=white)](https://www.python.org/)

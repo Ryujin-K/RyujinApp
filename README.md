@@ -1,6 +1,6 @@
 <div align="center">
   
-  # 🐉 RyujinApp
+  # <img src="https://i.imgur.com/PABzg9J.jpeg" width="40" height="40" style="vertical-align: middle;"> RyujinApp
 
   <a href="https://github.com/Ryujin-K/RyujinApp">
     <img width="500" src="https://i.imgur.com/EWWKqIw.png" alt="RyujinApp Logo" />

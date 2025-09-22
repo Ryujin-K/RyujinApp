@@ -1,7 +1,7 @@
 <div align="center">
   
   # 🐉 RyujinApp
-  
+
   <a href="https://github.com/Ryujin-K/RyujinApp">
     <img width="500" src="https://i.imgur.com/EWWKqIw.png" alt="RyujinApp Logo" />
   </a>
@@ -32,32 +32,23 @@
 
 ## 🚀 Quick Start
 
-### Prerequisites
-
-- **Chrome Browser** (required globally)
-- **Python 3.8+** with Poetry
-
 ### 📥 Installation
 
-1. **Clone the repository**
-   ```bash
-   git clone https://github.com/Ryujin-K/RyujinApp.git
-   cd RyujinApp
-   ```
+#### 🪟 Windows
+1. **Download** the `.exe` file from [Releases](https://github.com/Ryujin-K/RyujinApp/releases)
+2. **Run** the executable directly
+3. **Enjoy!** No additional setup required
 
-2. **Install dependencies**
-   ```bash
-   poetry install
-   ```
+#### 🐧 Linux
+1. **Download** the Linux executable from [Releases](https://github.com/Ryujin-K/RyujinApp/releases)
+2. **Make executable**: `chmod +x RyujinApp-linux`
+3. **Run**: `./RyujinApp-linux`
 
-3. **Run the application**
-   ```bash
-   poetry run start
-   ```
+> ⚠️ **Note**: Chrome browser is still required for web scraping functionality
 
-## 🔧 System Dependencies  
+## 🔧 System Requirements
 
-### � Global Requirements
+### 🌐 Global Dependencies
 - **Chrome Browser** - Required for web scraping functionality
 
 ### 🐧 Linux/BSD Specific
@@ -82,29 +73,14 @@ Install Wayland clipboard support:
 sudo zypper install wl-clipboard
 ```
 
-## 💻 Development
- 
-### Available Commands
+## 💻 Development Commands
 
-| Command | Description |
-|---------|-------------|
-| `poetry install` | 📦 Install all project dependencies |
-| `poetry run start` | 🚀 Launch the application |
-| `poetry run build` | 🔨 Build the project for distribution |
-| `poetry run clean` | 🧹 Clean Python cache files |
-| `poetry run new` | ➕ Create a new manga provider |
-
-### Project Structure
-
-```
-RyujinApp/
-├── 📁 src/                 # Core application code
-│   ├── 🔧 core/           # Business logic modules
-│   ├── 🎨 GUI_qt/         # Qt-based user interface
-│   └── 🌐 providers/      # Manga source implementations
-├── 📄 scripts/            # Build and utility scripts
-├── 🎯 assets/             # Application resources
-└── 📚 README.md           # This file
+```bash
+poetry install    # 📦 Install all dependencies
+poetry run start  # 🚀 Start the application
+poetry run build  # 🔨 Build the project for distribution
+poetry run clean  # 🧹 Clean __pycache__ files
+poetry run new    # ➕ Create a new provider
 ```
 
 ## 🤝 Contributing

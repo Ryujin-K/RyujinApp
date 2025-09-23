@@ -48,12 +48,17 @@ class ImperiodabritanniaProvider(WordPressMadara):
         return DownloadUseCase().execute(pages=pages, fn=fn, headers=headers, cookies=cookies)
     
     def _get_chapters_ajax(self, manga_id):
+        return self._get_chapters_ajax_britannia(manga_id)
+    
+    def _get_chapters_ajax_britannia(self, manga_id):
         if manga_id.startswith('http'):
             manga_slug = manga_id.split('/manga/')[-1].rstrip('/')
         else:
             manga_slug = manga_id.rstrip('/')
         
+        print(f"[DEBUG] ImperiodabritanniaProvider._get_chapters_ajax called with manga_id: {manga_id}")
         uri = urljoin(self.url, f'manga/{manga_slug}/ajax/chapters/?t=1')
+        print(f"[DEBUG] URI gerada: {uri}")
         ajax_headers = self.headers.copy()
         ajax_headers['Referer'] = f'https://imperiodabritannia.com/manga/{manga_slug}/'
         

@@ -21,21 +21,40 @@ def get_posix_candidates() -> list[str]:
     return posix_candidates
 
 def get_windows_candidates() -> list[str]:
+    """
+    Get all possible Chrome executable paths on Windows.
+    Using os.path.join for proper path handling.
+    """
     windows_candidates = []
+    
+    # Standard environment variables
     for item in map(
         os.environ.get,
         ("PROGRAMFILES", "PROGRAMFILES(X86)", "LOCALAPPDATA", "PROGRAMW6432"),
     ):
         if item:
-            for subitem in (
-                "Google/Chrome/Application",
-                "Google/Chrome Beta/Application",
-                "Google/Chrome Canary/Application",
-            ):
-                windows_candidates.append(os.path.join(item, subitem, "chrome.exe"))
+            # Use proper path separators for Windows
+            chrome_paths = [
+                os.path.join(item, "Google", "Chrome", "Application", "chrome.exe"),
+                os.path.join(item, "Google", "Chrome Beta", "Application", "chrome.exe"),
+                os.path.join(item, "Google", "Chrome Canary", "Application", "chrome.exe"),
+            ]
+            windows_candidates.extend(chrome_paths)
+    
+    # Additional common paths
+    username = os.environ.get('USERNAME', '')
+    if username:
+        additional_paths = [
+            rf"C:\Users\{username}\AppData\Local\Google\Chrome\Application\chrome.exe",
+        ]
+        windows_candidates.extend(additional_paths)
+    
     return windows_candidates
 
 def find_chrome_executable() -> str | None:
+    """
+    Find a valid Chrome/Chromium executable on the system.
+    """
     is_frozen = getattr(sys, 'frozen', False)
     
     if is_frozen:
@@ -45,9 +64,19 @@ def find_chrome_executable() -> str | None:
 
     candidates = get_posix_candidates() if is_posix else get_windows_candidates()
 
-    valid_candidates = [c for c in candidates if os.path.exists(c) and os.access(c, os.X_OK)]
+    # Find valid executables
+    valid_candidates = []
+    for candidate in candidates:
+        try:
+            if os.path.exists(candidate) and os.access(candidate, os.X_OK):
+                valid_candidates.append(candidate)
+        except (OSError, PermissionError):
+            continue
     
     if valid_candidates:
-        return os.path.normpath(min(valid_candidates, key=len))
+        result = os.path.normpath(min(valid_candidates, key=len))
+        print(f"[CHROME] Found: {result}")
+        return result
 
+    print("[CHROME] No executable found")
     return None

@@ -6,7 +6,8 @@ from GUI_qt.utils.load_providers import base_path
 from PyQt6.QtCore import QObject, pyqtSignal, QThread
 from PyQt6.QtWidgets import QWidget, QVBoxLayout, QTextEdit, QPushButton
 
-assets = os.path.join(base_path(), "GUI_qt", "assets")
+current_dir = os.path.join(base_path(), 'GUI_qt')
+assets = os.path.join(current_dir, 'assets')
 
 class LogEmitter(QObject):
     log_signal = pyqtSignal(str)
@@ -50,45 +51,13 @@ class LogWindow(QWidget):
         self.log_output.clear()
 
     def write_log(self, text: str):
-        # Aplicar cores baseadas no tipo de log
-        colored_text = self._apply_log_colors(text)
-        
         if "[no-render]" in text:
-            self.log_output.append(colored_text)
+            self.log_output.append(text)
         else:
-            colored_text = colored_text + '<br>'
-            self.log_output.insertHtml(colored_text)
+            text = text + '<br>'
+            self.log_output.insertHtml(text)
         if self.scroll_at_bottom:
             self.log_output.moveCursor(QTextCursor.MoveOperation.End)
-    
-    def _apply_log_colors(self, text: str) -> str:
-        """Aplica cores aos logs baseado no tipo"""
-        if "[ERROR]" in text:
-            return f'<span style="color: #ff4444; font-weight: bold;">{text}</span>'
-        elif "[WARNING]" in text:
-            return f'<span style="color: #ff8800;">{text}</span>'
-        elif "[SUCCESS]" in text:
-            return f'<span style="color: #44ff44;">{text}</span>'
-        elif "[INFO]" in text:
-            return f'<span style="color: #4488ff;">{text}</span>'
-        elif "[DEBUG]" in text:
-            return f'<span style="color: #888888;">{text}</span>'
-        elif "[HTTP]" in text:
-            if "✓" in text:
-                return f'<span style="color: #88ff88;">{text}</span>'
-            elif "✗" in text:
-                return f'<span style="color: #ff8888;">{text}</span>'
-            else:
-                return f'<span style="color: #88ccff;">{text}</span>'
-        elif "[PARSE]" in text:
-            if "✓" in text:
-                return f'<span style="color: #88ff88;">{text}</span>'
-            elif "⚠" in text:
-                return f'<span style="color: #ffaa44;">{text}</span>'
-            else:
-                return f'<span style="color: #cc88ff;">{text}</span>'
-        else:
-            return text
     
     def check_scroll_position(self):
         max_value = self.log_output.verticalScrollBar().maximum()

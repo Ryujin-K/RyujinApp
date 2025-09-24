@@ -7,7 +7,8 @@ from GUI_qt.utils.config import get_config
 from GUI_qt.utils.load_providers import base_path
 from PyQt6.QtWidgets import QWidget, QVBoxLayout, QListWidget, QLineEdit
 
-assets = os.path.join(base_path(), "GUI_qt", "assets")
+current_dir = os.path.join(base_path(), 'GUI_qt')
+assets = os.path.join(current_dir, 'assets')
 
 class WebSiteOpener(QWidget):
     def __init__(self, websites):

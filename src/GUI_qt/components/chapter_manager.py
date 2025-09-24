@@ -1,7 +1,6 @@
 import re
 import os
 import json
-import traceback
 from typing import List
 from PyQt6 import uic
 from PyQt6.QtWidgets import QSpacerItem, QSizePolicy
@@ -21,7 +20,6 @@ class ChapterManager:
         self.vertical_spacer = QSpacerItem(20, 40, QSizePolicy.Policy.Minimum, QSizePolicy.Policy.Expanding)
 
     def set_chapters(self, chapters: List[Chapter]):
-        print(f"[DEBUG_UI] Loading {len(chapters)} chapters.")
         self.chapters = chapters
         self.all_chapters = chapters
         self._add_chapters()
@@ -54,52 +52,39 @@ class ChapterManager:
         except ValueError as e:
             print(f"Error: {e}")
             self.chapters = []
-        self._add_chapters()
 
+        self._add_chapters()
 
     def invert_chapters(self):
         self.chapters = self.chapters[::-1]
         self._add_chapters()
 
     def _add_chapters(self):
-        try:
-            print(f"[DEBUG_UI] Starting rendering of {len(self.chapters)} chapters.")
+        while self.parent_window.verticalChapter.count():
+            item = self.parent_window.verticalChapter.takeAt(0)
+            widget = item.widget()
+            if widget:
+                widget.deleteLater()
+
+        config = get_config()
+        with open(os.path.join(self.assets, 'translations.json'), 'r', encoding='utf-8') as file:
+            translations = json.load(file)
+        download_text = translations[config.lang]['download']
+
+        for chapter in self.chapters:
+            chapter_ui = uic.loadUi(os.path.join(self.assets, 'chapter.ui'))
+            chapter_ui.numberLabel.setText(str(chapter.number))
             
-            while self.parent_window.verticalChapter.count():
-                item = self.parent_window.verticalChapter.takeAt(0)
-                widget = item.widget()
-                if widget:
-                    widget.deleteLater()
+            if hasattr(self.parent_window, 'download_status'):
+                if any(ch.id == chapter.id for ch, _, _ in self.parent_window.download_status):
+                    chapter_ui.download.setEnabled(False)
 
-            print("[DEBUG_UI] Layout cleared. Loading configurations.")
-
-            config = get_config()
-            with open(os.path.join(self.assets, 'translations.json'), 'r', encoding='utf-8') as file:
-                translations = json.load(file)
-            download_text = translations[config.lang]['download']
-
-            print("[DEBUG_UI] Creating chapter widgets...")
-
-            for i, chapter in enumerate(self.chapters):
-                chapter_ui = uic.loadUi(os.path.join(self.assets, 'chapter.ui'))
-                chapter_ui.numberLabel.setText(str(chapter.number))
-                
-                if hasattr(self.parent_window, 'download_status'):
-                    if any(ch.id == chapter.id for ch, _, _ in self.parent_window.download_status):
-                        chapter_ui.download.setEnabled(False)
-
-                if self.download_callback:
-                    chapter_ui.download.clicked.connect(
-                        lambda _, ch=chapter, btn=chapter_ui.download: 
-                        self.download_callback(ch, btn)
-                    )
-                
-                chapter_ui.download.setText(download_text)
-                self.parent_window.verticalChapter.addWidget(chapter_ui)
-            
-            self.parent_window.verticalChapter.addItem(self.vertical_spacer)
-            print(f"[DEBUG_UI] ✅ {len(self.chapters)} chapters rendered successfully.")
-
-        except Exception as e:
-            print(f"[DEBUG_UI] ❌ Critical rendering error: {str(e)}")
-            traceback.print_exc()
+            if self.download_callback:
+                chapter_ui.download.clicked.connect(
+                    lambda _, ch=chapter, btn=chapter_ui.download: 
+                    self.download_callback(ch, btn)
+                )
+            chapter_ui.download.setText(download_text)
+            self.parent_window.verticalChapter.addWidget(chapter_ui)
+        
+        self.parent_window.verticalChapter.addItem(self.vertical_spacer)

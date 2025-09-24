@@ -25,7 +25,8 @@ class MangaDownloaderMainWindow:
         self.manga_id_selected = None
         self.providers = import_classes_recursively()
 
-        self.assets = os.path.join(base_path(), "GUI_qt", "assets")
+        self.current_dir = os.path.join(base_path(), 'GUI_qt')
+        self.assets = os.path.join(self.current_dir, 'assets')
 
         self.app = app if app is not None else QApplication(sys.argv)
         self.window = uic.loadUi(os.path.join(self.assets, 'main.ui'))
@@ -148,58 +149,18 @@ class MangaDownloaderMainWindow:
         self.chapter_manager.set_chapters(chapters)
         self.window.pages.setCurrentIndex(0)
 
-    def set_title(self, manga):
-        """Define o título da janela e inicia busca de capítulos"""
-        try:
-            # Verificar se manga é válido
-            if manga is None:
-                print("[ERROR] Manga returned is None - scraper failed")
-                self._show_scraper_error("Scraper failed", "Could not obtain manga information. Check the logs for more details.")
-                return
-            
-            # Verificar se manga tem os atributos necessários
-            if not hasattr(manga, 'id') or not hasattr(manga, 'name'):
-                print(f"[ERROR] Invalid manga - missing attributes: {manga}")
-                self._show_scraper_error("Incomplete data", "Manga returned does not have valid ID or name.")
-                return
-            
-            # Verificar se ID não está vazio
-            if not manga.id or not manga.name:
-                print(f"[ERROR] Manga with empty data - ID: '{manga.id}', Name: '{manga.name}'")
-                self._show_scraper_error("Empty data", "Manga returned has empty ID or name.")
-                return
-
-            print(f"[SUCCESS] Valid manga obtained - ID: {manga.id}, Name: {manga.name}")
-
-            # Definir manga selecionado e título da janela
-            self.manga_id_selected = manga.id
-            self.window.setWindowTitle(f'RyujinApp | {manga.name} | {self.provider_selected.name}')
-            
-            # Iniciar busca de capítulos
-            chapter_task = ChaptersTask(self.provider_selected, manga.id)
-            chapter_task.signal.finished.connect(self.set_chapter)
-            chapter_task.signal.error.connect(self._manga_by_link_error)
-            self.pool2.start(chapter_task)
-            
-        except Exception as e:
-            print(f"[ERROR] Critical error in set_title: {e}")
-            import traceback
-            traceback.print_exc()
-            self._show_scraper_error("Internal Error", f"Unexpected error processing manga: {str(e)}")
-
-    def _show_scraper_error(self, title: str, message: str):
-        """Exibe erro de scraper sem travar a aplicação"""
-        print(f"[SCRAPER_ERROR] {title}: {message}")
-        self.window.pages.setCurrentIndex(0)  # Voltar à página inicial
-        from PyQt6.QtWidgets import QMessageBox
-        QMessageBox.warning(None, title, message)
+    def set_title(self, manga: Manga):
+        self.manga_id_selected = manga.id
+        self.window.setWindowTitle(
+            f'RyujinApp | {manga.name} | {self.provider_selected.name}')
+        chapter_task = ChaptersTask(self.provider_selected, manga.id)
+        chapter_task.signal.finished.connect(self.set_chapter)
+        chapter_task.signal.error.connect(self._manga_by_link_error)
+        self.pool2.start(chapter_task)
 
     def _manga_by_link_error(self, msg: str):
-        """Trata erros de obtenção de manga/capítulos"""
-        print(f"[SCRAPER_ERROR] Error obtaining manga/chapters: {msg}")
-        self.window.pages.setCurrentIndex(0)  # Voltar à página inicial
-        from PyQt6.QtWidgets import QMessageBox
-        QMessageBox.critical(None, "Scraper Error", f"Failed to obtain data:\n\n{str(msg)}\n\nCheck the logs for more details.")
+        self.window.pages.setCurrentIndex(0)
+        QMessageBox.critical(None, "Erro", str(msg))
 
     def manga_by_link(self):
         link = get()

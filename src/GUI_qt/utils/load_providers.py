@@ -9,16 +9,10 @@ from core.providers.domain.provider_repository import ProviderRepository
 data_path = user_data_path('RyujinApp')
 
 def base_path():
-    """ Returns the absolute path to the application. """
-    import sys
-    try:
-        if getattr(sys, 'frozen', False):
-            return Path(getattr(sys, '_MEIPASS', os.path.dirname(sys.executable)))
-        script_path = Path(__file__).resolve()
-        src_folder = script_path.parent.parent.parent
-        return src_folder
-    except NameError:
-        return Path('.')
+    if os.environ.get('RYUJINAPP_ENV') != 'dev':
+        return data_path / 'RyujinApp' / 'src'
+
+    return Path('.') / 'src'
 
 package_path = os.path.join(base_path(), 'core', 'providers', 'infra')
 ignore_folders = ['template', '__pycache__']

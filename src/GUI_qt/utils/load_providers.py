@@ -9,7 +9,7 @@ from core.providers.domain.provider_repository import ProviderRepository
 data_path = user_data_path('RyujinApp')
 
 def base_path():
-    if os.environ.get('RYUJINAPP_ENV') != 'dev':
+    if os.environ.get('RYUJINAPPENV') != 'dev':
         return data_path / 'RyujinApp' / 'src'
 
     return Path('.') / 'src'

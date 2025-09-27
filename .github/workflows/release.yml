@@ -13,10 +13,14 @@ jobs:
       fail-fast: false
       matrix:
         config:
-          - os: ubuntu-latest
-          - os: windows-latest
+          - os: ubuntu-22.04
+          - os: windows-2022
 
     steps:
+      - name: Install CA certificates
+        if: ${{ matrix.config.os == 'ubuntu-22.04' }}
+        run: sudo apt-get update && sudo apt-get install -y ca-certificates
+
       - name: Checkout code
         uses: actions/checkout@v3
 
@@ -37,11 +41,11 @@ jobs:
         run: poetry run build
 
       - name: Rename build app for Windows
-        if: ${{ matrix.config.os == 'windows-latest' }}
+        if: ${{ matrix.config.os == 'windows-2022' }}
         run: mv ./dist/__init__.exe ./dist/RyujinApp.exe
 
       - name: Rename build app for Ubuntu
-        if: ${{ matrix.config.os == 'ubuntu-latest' }}
+        if: ${{ matrix.config.os == 'ubuntu-22.04' }}
         run: mv ./dist/__init__ ./dist/RyujinApp
 
       - name: Move build directory
@@ -71,5 +75,5 @@ jobs:
           draft: false
           prerelease: false
           files: |
-            ryujinapp-pyinstaller-artifact-windows-latest/RyujinApp.exe
-            ryujinapp-pyinstaller-artifact-ubuntu-latest/RyujinApp
+            ryujinapp-pyinstaller-artifact-windows-2022/RyujinApp.exe
+            ryujinapp-pyinstaller-artifact-ubuntu-22.04/RyujinApp

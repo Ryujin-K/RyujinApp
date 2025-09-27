@@ -15,7 +15,7 @@ def base_path():
     return Path('.') / 'src'
 
 package_path = os.path.join(base_path(), 'core', 'providers', 'infra')
-ignore_folders = ['template', '__pycache__']
+ignore_folders = ['__pycache__']
 
 def _get_class(package_path, ignore_folders):
     classes = []

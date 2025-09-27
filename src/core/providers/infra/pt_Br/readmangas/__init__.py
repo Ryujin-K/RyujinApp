@@ -1,5 +1,5 @@
 from typing import List, Tuple
-from core.providers.infra.template.SPA_theme import SPATheme
+from core.providers.infra.template.base import Base
 from core.providers.domain.entities import Chapter, Pages, Manga
 from core.__seedwork.infra.http import Http
 from bs4 import BeautifulSoup
@@ -7,7 +7,7 @@ import re
 import json
 import html
 
-class ReadMangasProvider(SPATheme):
+class ReadMangasProvider(Base):
     name = 'Read Mangas'
     lang = 'pt_Br'
     domain = ['www.readmangas.org']

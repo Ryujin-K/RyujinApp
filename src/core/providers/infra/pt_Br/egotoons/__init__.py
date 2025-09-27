@@ -1,10 +1,10 @@
-from core.providers.infra.template.SPA_theme import SPATheme
+from core.providers.infra.template.base import Base
 from core.providers.domain.entities import Chapter, Pages, Manga
 import re
 import json
 import html
 
-class EgoToonsProvider(SPATheme):
+class EgoToonsProvider(Base):
     name = 'Ego Toons'
     lang = 'pt_Br'
     domain = ['egotoons.com']

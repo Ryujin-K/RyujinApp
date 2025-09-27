@@ -1,19 +1,29 @@
 import os
 from dulwich import porcelain
 from packaging import version
-from platformdirs import user_data_path
-
-data_path = user_data_path('RyujinApp')
+from .paths import paths
 
 def update_providers():
-    os.makedirs(data_path, exist_ok=True)
-    if not os.path.isdir(data_path / 'RyujinApp'):
-        porcelain.clone('https://github.com/Ryujin-K/RyujinApp', data_path / 'RyujinApp')
+    paths.ensure_dirs()
+    
+    if not paths.repo_dir.exists() or not any(paths.repo_dir.iterdir()):
+        print(f"Clonando repositório para: {paths.repo_dir}")
+        porcelain.clone('https://github.com/Ryujin-K/RyujinApp', str(paths.repo_dir))
     else:
-        porcelain.pull(data_path / 'RyujinApp')
+        print(f"Atualizando repositório em: {paths.repo_dir}")
+        porcelain.pull(str(paths.repo_dir))
 
 def get_last_version():
-    tags = porcelain.tag_list(data_path / 'RyujinApp')
-    versions_str = [v.decode('utf-8')[1:] for v in tags]
-    ordered_versions = sorted(versions_str, key=version.parse)
-    return ordered_versions[-1]
+    if not paths.repo_dir.exists():
+        return "0.0.0"
+    
+    try:
+        tags = porcelain.tag_list(str(paths.repo_dir))
+        versions_str = [v.decode('utf-8')[1:] for v in tags if v.decode('utf-8').startswith('v')]
+        if not versions_str:
+            return "0.0.0"
+        ordered_versions = sorted(versions_str, key=version.parse)
+        return ordered_versions[-1]
+    except Exception as e:
+        print(f"Erro ao obter versão: {e}")
+        return "0.0.0"

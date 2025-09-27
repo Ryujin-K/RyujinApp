@@ -4,16 +4,12 @@ import json
 from pathlib import Path
 from PyQt6.QtGui import QIcon
 from PyQt6.QtCore import QLocale
-from GUI_qt.utils.load_providers import base_path
+from GUI_qt.utils.paths import paths
 from GUI_qt.utils.config import get_config, update_lang
 from PyQt6.QtWidgets import QWidget, QVBoxLayout, QLabel, QProgressBar
 
-def base():
-    if getattr(sys, 'frozen', False) and hasattr(sys, '_MEIPASS'):
-        return Path(sys._MEIPASS)
-    return base_path()
-current_dir = os.path.join(base(), 'GUI_qt')
-assets = os.path.join(current_dir, 'assets')
+current_dir = str(paths.gui_dir)
+assets = str(paths.assets_dir)
 
 class LoadingWindow(QWidget):
     def __init__(self):

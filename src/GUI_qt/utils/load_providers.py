@@ -1,20 +1,22 @@
 import os
+import sys
 import importlib.util
 from typing import List
 from pathlib import Path
 from GUI_qt.utils.config import get_config
-from platformdirs import user_data_path
 from core.providers.domain.provider_repository import ProviderRepository
-
-data_path = user_data_path('RyujinApp')
+from .paths import paths
 
 def base_path():
-    if os.environ.get('RYUJINAPPENV') != 'dev':
-        return data_path / 'RyujinApp' / 'src'
+    return paths.base_dir
 
-    return Path('.') / 'src'
+def get_providers_path():
+    return paths.providers_dir
 
-package_path = os.path.join(base_path(), 'core', 'providers', 'infra')
+def get_assets_path():
+    return paths.assets_dir
+
+package_path = str(get_providers_path())
 ignore_folders = ['template', '__pycache__']
 
 def _get_class(package_path, ignore_folders):

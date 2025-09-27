@@ -6,7 +6,7 @@ from core.providers.application.use_cases import ProviderGetPagesUseCase, Provid
 from core.slicer.application.use_cases import SlicerUseCase
 from core.group_imgs.application.use_cases import GroupImgsUseCase
 from GUI_qt.utils.config import get_config
-from GUI_qt.utils.load_providers import base_path
+from GUI_qt.utils.paths import paths
 import json
 
 
@@ -23,7 +23,7 @@ class DownloadWorker(QRunnable):
         self.chapter = chapter
         self.provider = provider
         self.signals = DownloadWorkerSignals()
-        self.current_dir = os.path.join(base_path(), 'GUI_qt')
+        self.current_dir = str(paths.gui_dir)
         self.assets = os.path.join(self.current_dir, 'assets')
 
     def run(self):

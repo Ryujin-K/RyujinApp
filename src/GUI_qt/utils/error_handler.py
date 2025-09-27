@@ -4,7 +4,7 @@ import json
 import traceback
 from PyQt6.QtWidgets import QApplication, QMessageBox
 from GUI_qt.utils.config import get_config
-from GUI_qt.utils.load_providers import base_path
+from GUI_qt.utils.paths import paths
 
 
 class SafeSlotWrapper:
@@ -39,7 +39,7 @@ def global_exception_handler(exc_type, exc_value, exc_traceback):
     try:
         config = get_config()
         translations = {}
-        assets_path = os.path.join(os.path.join(base_path(), 'GUI_qt'), 'assets')
+        assets_path = str(paths.assets_dir)
         
         with open(os.path.join(assets_path, 'translations.json'), 'r', encoding='utf-8') as file:
             translations = json.load(file)

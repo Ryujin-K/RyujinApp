@@ -8,7 +8,8 @@ from PyQt6.QtWidgets import QApplication, QMessageBox
 from tldextract import extract
 from clipman import get
 from GUI_qt.utils.config import get_config, update_max_download, update_log, update_progress
-from GUI_qt.utils.load_providers import import_classes_recursively, base_path
+from GUI_qt.utils.load_providers import import_classes_recursively
+from GUI_qt.utils.paths import paths
 from GUI_qt.workers.manga_worker import MangaTask, ChaptersTask
 from GUI_qt.components.chapter_manager import ChapterManager
 from GUI_qt.components.progress_manager import ProgressManager
@@ -25,8 +26,8 @@ class MangaDownloaderMainWindow:
         self.manga_id_selected = None
         self.providers = import_classes_recursively()
 
-        self.current_dir = os.path.join(base_path(), 'GUI_qt')
-        self.assets = os.path.join(self.current_dir, 'assets')
+        self.current_dir = str(paths.gui_dir)
+        self.assets = str(paths.assets_dir)
 
         self.app = app if app is not None else QApplication(sys.argv)
         self.window = uic.loadUi(os.path.join(self.assets, 'main.ui'))

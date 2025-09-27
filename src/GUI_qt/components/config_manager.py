@@ -11,18 +11,17 @@ from core.config.img_conf import (
     update_slice, update_slice_replace_original_files,
     update_group_replace_original_files
 )
-from GUI_qt.utils.load_providers import base_path
+from GUI_qt.utils.paths import paths
 
 
 class ConfigManager:
     def __init__(self, parent_window):
         self.parent_window = parent_window
         self.initial_data = True
-        self.current_dir = os.path.join(base_path(), 'GUI_qt')
+        self.current_dir = str(paths.gui_dir)
         self.assets = os.path.join(self.current_dir, 'assets')
 
     def initialize_config(self):
-        """Inicializa a configuração da interface"""
         self.lang_changed()
         self.img_format_changed()
         self.set_folder()

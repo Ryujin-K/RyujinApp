@@ -122,9 +122,9 @@ This project is built upon the amazing work of:
 
 ## 📞 Community & Support
 
-- 💬 Join our [Discord Community](https://discord.com/invite/cTa5WbEsfS) for support, discussions and announcements  
-- 🍴 Fork this repository to experiment or add your own features  
-- 📦 Download the latest release from [Releases](https://github.com/Ryujin-K/RyujinApp/releases)  
+- Join our [Discord Community](https://discord.com/invite/cTa5WbEsfS) for support, discussions and announcements  
+- Fork this repository to experiment or add your own features  
+- Download the latest release from [Releases](https://github.com/Ryujin-K/RyujinApp/releases)  
 
 ---
 

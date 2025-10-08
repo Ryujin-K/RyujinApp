@@ -1,4 +1,5 @@
 from bs4 import BeautifulSoup
+import re
 from urllib.parse import urljoin
 from fake_useragent import UserAgent
 from core.__seedwork.infra.http import Http
@@ -19,6 +20,7 @@ class HuntersScanProvider(WordPressMadara):
         self.query_chapters = 'li.wp-manga-chapter > a'
         self.query_chapters_title_bloat = None
         self.query_pages = 'div.page-break.no-gaps'
+        self.query_pages_img = 'div.reading-content img.wp-manga-chapter-img'
         self.query_title_for_uri = 'head meta[property="og:title"]'
         self.query_placeholder = '[id^="manga-chapters-holder"][data-id]'
         
@@ -67,7 +69,6 @@ class HuntersScanProvider(WordPressMadara):
             return []
     
     def _get_all_chapters_paginated(self, manga_id, title):
-        """Get all chapters using pagination"""
         if not manga_id.endswith('/'):
             manga_id += '/'
         
@@ -100,121 +101,38 @@ class HuntersScanProvider(WordPressMadara):
         return unique_chapters
     
     def getPages(self, ch: Chapter) -> Pages:
+        urls = self._get_images_http(ch.id)
+        num = re.findall(r'\d+\.?\d*', str(ch.number))
+        number = num[0] if num else ch.number
+        return Pages(ch.id, number, ch.name, urls)
+
+    def _get_images_http(self, url_capitulo: str):
         try:
-            urls = self._get_pages_with_browser(ch)
-            return Pages(ch.id, ch.number, ch.name, urls)
-            
-        except Exception as e:
-            print(f"getPages error: {e}")
-            return Pages(ch.id, ch.number, ch.name, [])
-    
-    def _get_pages_with_browser(self, ch):
-        try:
-            import undetected_chromedriver as uc
-            import time
-            
-            options = uc.ChromeOptions()
-            options.add_argument("--headless")
-            options.add_argument("--log-level=3")
-            options.add_argument("--disable-gpu")
-            options.add_argument("--no-sandbox")
-            options.add_argument("--disable-dev-shm-usage")
-            options.add_argument("--disable-extensions")
-            options.add_argument("--disable-infobars")
-            options.add_argument("--disable-notifications")
-            options.add_argument("--disable-popup-blocking")
-            options.add_argument("--disable-background-networking")
-            options.add_argument("--disable-background-timer-throttling")
-            options.add_argument("--disable-backgrounding-occluded-windows")
-            options.add_argument("--disable-client-side-phishing-detection")
-            options.add_argument("--disable-default-apps")
-            options.add_argument("--disable-hang-monitor")
-            options.add_argument("--disable-prompt-on-repost")
-            options.add_argument("--disable-sync")
-            options.add_argument("--metrics-recording-only")
-            options.add_argument("--no-first-run")
-            options.add_argument("--safebrowsing-disable-auto-update")
-            options.add_argument("--disable-features=site-per-process,TranslateUI,BlinkGenPropertyTrees")
-            options.add_argument("--window-size=1920,1080")
-            options.add_argument(f"--user-agent={self.headers['User-Agent']}")
-            
-            urls_to_block = [
-                "*googlesyndication.com*",
-                "*googletagmanager.com*", 
-                "*google-analytics.com*",
-                "*disable-devtool*",
-                "*adblock-checker*",
-                "*googleadservices.com*",
-                "*doubleclick.net*"
-            ]
-            
-            try:
-                driver = uc.Chrome(options=options, version_main=140)  # Chrome 140 based on error
-            except Exception:
-                driver = uc.Chrome(options=options)
-            
-            try:
-                driver.execute_cdp_cmd('Network.enable', {})
-                driver.execute_cdp_cmd('Network.setBlockedURLs', {'urls': urls_to_block})
-    
-                driver.get(ch.id)
-                
-                script_js = """
-                window.originalImageUrls = new Set();
-                const observer = new PerformanceObserver((list) => {
-                    for (const entry of list.getEntries()) {
-                        if (entry.initiatorType === 'img' && entry.name.includes('/WP-manga/data/')) {
-                            window.originalImageUrls.add(entry.name);
-                        }
-                    }
-                });
-                observer.observe({ type: "resource", buffered: true });
-                return true;
-                """
-                
-                driver.execute_script(script_js)
-                print("Performance Observer configured")
-                
-                time.sleep(8)
-                
-                driver.execute_script("""
-                    // Scroll to trigger lazy loading
-                    window.scrollTo(0, document.body.scrollHeight);
-                    window.scrollTo(0, 0);
-                    
-                    // Trigger events that might load images
-                    window.dispatchEvent(new Event('load'));
-                    window.dispatchEvent(new Event('DOMContentLoaded'));
-                    window.dispatchEvent(new Event('resize'));
-                """)
-                
-                time.sleep(2)
-                
-                captured_urls = driver.execute_script("return Array.from(window.originalImageUrls);")
-                
-                if captured_urls:
-                    def extract_page_number(url):
-                        try:
-                            filename = url.split('/')[-1]
-                            return int(filename.split('.')[0])
-                        except (ValueError, IndexError):
-                            return 0
-                    
-                    sorted_urls = sorted(captured_urls, key=extract_page_number)
-                    print(f"Successfully captured {len(sorted_urls)} manga URLs")
-                    
-                    return sorted_urls
-                else:
-                    print("No URLs captured")
-                    return []
-                    
-            finally:
-                driver.quit()
-                
-        except Exception as e:
-            print(f"Selenium error: {e}")
-            import traceback
-            traceback.print_exc()
+            r = Http.get(url_capitulo, headers=self.headers, timeout=self.timeout)
+            if r.status not in range(200, 299):
+                return []
+            soup = BeautifulSoup(r.content, 'html.parser')
+            selectors = [self.query_pages_img, 'div.page-break img', 'div.reading-content img']
+            imgs = []
+            for sel in selectors:
+                imgs = soup.select(sel)
+                if imgs: break
+            if not imgs: return []
+            urls = []
+            for img in imgs:
+                for attr in ('src','data-src','data-lazy-src','data-original'):
+                    v = (img.get(attr) or '').strip()
+                    if v:
+                        if v.startswith('//'): v = 'https:' + v
+                        if v.startswith('/'): v = urljoin(self.url, v)
+                        if '/WP-manga/data/' in v and v.lower().endswith(('.jpg','.jpeg','.png','.webp')):
+                            urls.append(v); break
+            seen = set(); urls = [u for u in urls if not (u in seen or seen.add(u))]
+            def num(u):
+                f = u.split('/')[-1].split('?')[0]
+                m = re.search(r'(\d+)', f); return int(m.group(1)) if m else 0
+            return sorted(urls, key=num)
+        except Exception:
             return []
     
     def download(self, pages: Pages, fn: any, headers=None, cookies=None):

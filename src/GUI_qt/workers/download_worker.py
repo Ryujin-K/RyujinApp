@@ -37,7 +37,7 @@ class DownloadWorker(QRunnable):
         self.assets = os.path.join(self.current_dir, 'assets')
 
     def run(self):
-        log_info(f"Iniciando download: {self.chapter.name} - Cap. {self.chapter.number}")
+        log_info(f"Iniciando download: {self.chapter.name} - {self.chapter.number}")
         
         try:
             img_conf = get_img_config()
@@ -88,7 +88,7 @@ class DownloadWorker(QRunnable):
 
             try:
                 ch = ProviderDownloadUseCase(self.provider).execute(pages=pages, fn=update_progress_bar)
-                log_success(f"Download concluído: Cap. {self.chapter.number}")
+                log_success(f"Download concluído: {self.chapter.number}")
             except ZeroDivisionError as e:
                 log_error(f"ZeroDivisionError no download: {str(e)}")
                 self.signals.download_error.emit(f'{self.chapter.name} \n {self.chapter.number} \n Erro: Nenhuma página encontrada para download - ZeroDivisionError')
@@ -106,7 +106,7 @@ class DownloadWorker(QRunnable):
                     self.signals.progress_changed.emit(0)
                     set_progress_bar_style("#0080FF")
                     ch = SlicerUseCase().execute(ch, update_progress_bar)
-                    log_success(f"Slice concluído: Cap. {self.chapter.number}")
+                    log_success(f"Slice concluído: {self.chapter.number}")
                 except ZeroDivisionError as e:
                     log_error(f"ZeroDivisionError no slice: {str(e)}")
                     self.signals.download_error.emit(f'{self.chapter.name} \n {self.chapter.number} \n Erro no slice: Nenhum arquivo para processar - ZeroDivisionError')
@@ -124,7 +124,7 @@ class DownloadWorker(QRunnable):
                     set_progress_bar_style("#FFA500")
                     GroupImgsUseCase().execute(ch, update_progress_bar)
                     self.signals.progress_changed.emit(100)
-                    log_success(f"Agrupamento concluído: Cap. {self.chapter.number}")
+                    log_success(f"Agrupamento concluído: {self.chapter.number}")
                 except ZeroDivisionError as e:
                     log_error(f"ZeroDivisionError no agrupamento: {str(e)}")
                     self.signals.download_error.emit(f'{self.chapter.name} \n {self.chapter.number} \n Erro no agrupamento: Nenhum arquivo para agrupar - ZeroDivisionError')

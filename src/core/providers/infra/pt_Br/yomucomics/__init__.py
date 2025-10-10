@@ -49,22 +49,30 @@ class YomuComicsProvider(MangaReaderCms):
         data = r.json() if r and r.status == 200 else {}
         chs = data.get('chapters', [])
         series_id = data.get('id')
-        title = f"{data.get('name')} - {series_id}" if series_id else data.get('name')
+        title = data.get('name') or 'Desconhecido'
+        # Armazena o series_id no título de forma oculta para usar no getPages
+        title_with_id = f"{title}|||{series_id}" if series_id else title
         base = id.replace('obra', 'ler').rstrip('/')
         out = []
         for c in chs:
             idx = c.get('index')
             if idx is None: continue
-            out.append(Chapter(f"{base}/{idx}", str(idx), title))
+            out.append(Chapter(f"{base}/{idx}", str(idx), title_with_id))
         out.reverse()
         return out
 
     def getPages(self, ch: Chapter) -> Pages:
+        # Extrai o series_id do título sem modificar o objeto original
         try:
-            title_part, sid = ch.name.split(' - ')
-            ch.name = title_part
+            if '|||' in ch.name:
+                title_part, sid = ch.name.split('|||')
+            else:
+                title_part = ch.name
+                sid = ''
         except ValueError:
+            title_part = ch.name
             sid = ''
+        
         images_api = f"{self._api_chapters}{sid}/{ch.number}"
         r = Http.get(images_api)
         data = r.json() if r and r.status == 200 else {}
@@ -73,4 +81,4 @@ class YomuComicsProvider(MangaReaderCms):
             u = p.get('url')
             if u:
                 pages.append(urljoin(self.url, u))
-        return Pages(ch.id, ch.number, ch.name, pages)
+        return Pages(ch.id, ch.number, title_part, pages)

@@ -151,13 +151,33 @@ class MangaDownloaderMainWindow:
         self.window.pages.setCurrentIndex(0)
 
     def set_title(self, manga: Manga):
-        self.manga_id_selected = manga.id
-        self.window.setWindowTitle(
-            f'RyujinApp | {manga.name} | {self.provider_selected.name}')
-        chapter_task = ChaptersTask(self.provider_selected, manga.id)
-        chapter_task.signal.finished.connect(self.set_chapter)
-        chapter_task.signal.error.connect(self._manga_by_link_error)
-        self.pool2.start(chapter_task)
+        try:
+            manga_id = getattr(manga, 'id', None)
+            if not manga_id:
+                error_msg = f"[ERROR] O manga retornado não possui um ID válido. Provider: {self.provider_selected.name}"
+                print(error_msg)
+                self._manga_by_link_error("O manga retornado não possui um ID válido. Verifique o link ou o provider.")
+                return
+            
+            self.manga_id_selected = manga_id
+            
+            # Proteção para o título
+            manga_name = getattr(manga, "name", "Sem nome")
+            if not manga_name or not isinstance(manga_name, str):
+                manga_name = "Sem nome"
+                print(f"[ERROR] Nome do manga inválido. Provider: {self.provider_selected.name}")
+            
+            self.window.setWindowTitle(f'RyujinApp | {manga_name} | {self.provider_selected.name}')
+            
+            chapter_task = ChaptersTask(self.provider_selected, manga_id)
+            chapter_task.signal.finished.connect(self.set_chapter)
+            chapter_task.signal.error.connect(self._manga_by_link_error)
+            self.pool2.start(chapter_task)
+            
+        except Exception as e:
+            error_msg = f"[ERROR] Erro ao processar manga: {str(e)}"
+            print(error_msg)
+            self._manga_by_link_error(f"Erro ao processar manga: {str(e)}")
 
     def _manga_by_link_error(self, msg: str):
         self.window.pages.setCurrentIndex(0)

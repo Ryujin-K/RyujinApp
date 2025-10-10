@@ -11,6 +11,14 @@ Image.MAX_IMAGE_PIXELS = 933120000
 class GroupImages():
     def run(self, ch: Chapter, fn=None):
         conf = get_config()
+        
+        # Verifica se há arquivos para agrupar
+        if not ch.files or len(ch.files) == 0:
+            print(f"[GroupImages] Nenhum arquivo para agrupar no capítulo {ch.number}")
+            if fn:
+                fn(100)
+            return
+        
         if conf.group_format == '.pdf':
                 path = Path.joinpath(Path(ch.files[0]).parent.parent,f'{sanitize_folder_name(ch.number)}.pdf')
                 first = Image.open(ch.files[0]).convert('RGB')
@@ -25,3 +33,6 @@ class GroupImages():
         if conf.group_replace_original_files:
             path = str(Path.joinpath(Path(ch.files[0]).parent.parent, f'{sanitize_folder_name(ch.number)}'))
             shutil.rmtree(path)
+        
+        if fn:
+            fn(100)

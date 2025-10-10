@@ -23,6 +23,14 @@ class PillowDownloadRepository(DownloadRepository):
 
         page_number = 1
         files = []
+        total_pages = len(pages.pages)
+        
+        # Evita divisão por zero
+        if total_pages == 0:
+            if fn != None:
+                fn(100)
+            return Chapter(pages.number, files)
+        
         for i, page in enumerate(pages.pages):
             response = Http.get(page, headers=headers, cookies=cookies, timeout=timeout)
             try:
@@ -37,10 +45,10 @@ class PillowDownloadRepository(DownloadRepository):
                 print(f"<stroke style='color:green;'>[Downloading]:</stroke> <span style='color:red;'>Error</stroke> {e}")
 
             if fn != None:
-                fn(math.ceil(i * 100)/len(pages.pages))
+                fn(math.ceil((i + 1) * 100 / total_pages))
             page_number += 1
 
         if fn != None:
-            fn(math.ceil(len(pages.pages) * 100)/len(pages.pages))
+            fn(100)
 
         return Chapter(pages.number, files)

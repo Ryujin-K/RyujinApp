@@ -15,6 +15,13 @@ from core.__seedwork.infra.utils.sanitize_folder import sanitize_folder_name
 
 class SmartStitch():
     def run(self, ch: Chapter, fn = None) -> Chapter:
+        # Verifica se há arquivos para processar
+        if not ch.files or len(ch.files) == 0:
+            print(f"[SmartStitch] Nenhum arquivo para processar no capítulo {ch.number}")
+            if fn:
+                fn(100)
+            return ch
+        
         conf = get_config()
         img_handler = ImageHandler()
         img_manipulator = ImageManipulator()
@@ -28,19 +35,20 @@ class SmartStitch():
         files = []
         continue_index = -1
         img_iteration = 1
-        while continue_index < len(ch.files) - 1:
+        total_files = len(ch.files)
+        while continue_index < total_files - 1:
             group_height = 0
             img_objs = []
-            for i in range(continue_index + 1, len(ch.files)):
+            for i in range(continue_index + 1, total_files):
                 img = pil.open(ch.files[i])
                 img_objs.append(img)
                 width, height = img.size
                 group_height += height
-                if group_height >= 5 * conf.split_height or i == len(ch.files) - 1:
-                    if continue_index < len(ch.files) - 1:
+                if group_height >= 5 * conf.split_height or i == total_files - 1:
+                    if continue_index < total_files - 1:
                         continue_index = i
-                    if i == len(ch.files):
-                        continue_index = len(ch.files) - 1
+                    if i == total_files:
+                        continue_index = total_files - 1
                     break
 
             imgs = img_manipulator.resize(
@@ -66,8 +74,8 @@ class SmartStitch():
                 files.append(str(Path.joinpath(Path(tempfile.gettempdir()), 'RyujinApp', Path(ch.files[0]).parent.parent.name, f'{sanitize_folder_name(ch.number)} [stitched]', filename)))
                 img_iteration += 1
 
-            if fn != None:
-                fn(math.ceil(continue_index * 80)/len(ch.files))
+            if fn != None and total_files > 0:
+                fn(math.ceil(continue_index * 80 / total_files))
 
         imgs = img_handler.load(files)
         combined_img = img_manipulator.combine(imgs)
@@ -93,8 +101,8 @@ class SmartStitch():
                 img_format=conf.img,
                 quality=100,
             )
-            if fn != None:
-                fn(80 + (math.ceil(i * 50)/len(ch.files)))
+            if fn != None and total_files > 0:
+                fn(80 + (math.ceil(i * 50 / total_files)))
             files.append(str(Path.joinpath(Path(path), filename)))
             img_iteration += 1
         
@@ -103,6 +111,6 @@ class SmartStitch():
         gc.collect()
 
         if fn != None:
-            fn(math.ceil(len(ch.files) * 100)/len(ch.files))
+            fn(100)
         
         return Chapter(ch.number, files)

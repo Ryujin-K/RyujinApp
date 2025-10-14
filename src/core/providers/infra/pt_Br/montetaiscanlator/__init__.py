@@ -1,4 +1,6 @@
 from core.providers.infra.template.wordpress_madara import WordPressMadara
+from core.download.application.use_cases import DownloadUseCase
+from core.providers.domain.entities import Pages
 
 class MonteTaiScanlatorProvider(WordPressMadara):
     name = 'Monte Tai Scanlator'
@@ -16,3 +18,10 @@ class MonteTaiScanlatorProvider(WordPressMadara):
         self.query_pages = 'div.page-break.no-gaps'
         self.query_title_for_uri = 'head meta[property="og:title"]'
         self.query_placeholder = '[id^="manga-chapters-holder"][data-id]'
+    
+    def download(self, pages: Pages, fn: any, headers=None, cookies=None):
+        if headers is not None:
+            headers = headers | {'Referer': 'https://montetaiscanlator.xyz/'}
+        else:
+            headers = {'Referer': 'https://montetaiscanlator.xyz/'}
+        return DownloadUseCase().execute(pages=pages, fn=fn, headers=headers, cookies=cookies)

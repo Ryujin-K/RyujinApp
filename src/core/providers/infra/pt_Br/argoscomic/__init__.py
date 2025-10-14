@@ -70,8 +70,8 @@ def _cleanup():
 
 atexit.register(_cleanup)
 
-class ArgosComicProviderCompact(WordpressEtoshoreMangaTheme):
-    name = 'Argos Comic Compact'
+class ArgosComicProvider(WordpressEtoshoreMangaTheme):
+    name = 'Argos Comic'
     lang = 'pt_Br'
     domain = ['argoscomic.com']
 

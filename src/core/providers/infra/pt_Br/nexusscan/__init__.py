@@ -53,34 +53,62 @@ class NexusScanProvider(WordPressMadara):
         return chs
     
     def getPages(self, ch: Chapter) -> Pages:
-        uri = str(ch.id)
-        if uri.startswith("/manga/"):
-            uri = uri.replace("/manga/", "page-data/", 1)
-        elif uri.startswith("manga/"):
-            uri = uri.replace("manga/", "page-data/", 1)
-        else:
-            print(f"Padrão inesperado em ch.id: {uri}")
-            parts = uri.strip('/').split('/')
-            if len(parts) >= 2:
-                uri = f"page-data/{'/'.join(parts[1:])}" 
-        
-        uri_base = f"{self.api_chapters}{uri}"
-        count = 1
-        list = [] 
-        while True:
-            uri = f"{uri_base}{count}/"
-            try:
-                response = Http.get(uri)
-                soup = BeautifulSoup(response.content, 'html.parser')
-                temp = soup.text
-                image = dict(json.loads(temp)).get("image_url")
-                list.append(image)
-                count += 1
-            except:
-                break
+        href = str(ch.id).strip()
+        chapter_url = href if href.startswith('http') else urljoin(self.url, href)
 
-        number = re.findall(r'\d+\.?\d*', str(ch.number))[0]
-        return Pages(ch.id, number, ch.name, list)
+        image_urls = []
+        reader_response = None
+        reader_error = None
+
+        try:
+            reader_response = Http.get(chapter_url, timeout=getattr(self, 'timeout', None))
+            soup = BeautifulSoup(reader_response.content, 'html.parser')
+            script_tag = soup.find('script', id='page-data')
+            if script_tag:
+                raw_json = script_tag.string or script_tag.get_text()
+                if raw_json:
+                    payload = json.loads(raw_json)
+                    image_urls = [item.get('image_url') for item in payload if item.get('image_url')]
+        except Exception as exc:
+            reader_error = exc
+            image_urls = []
+
+        if not image_urls:
+            uri = href
+            if uri.startswith("/manga/"):
+                uri = uri.replace("/manga/", "page-data/", 1)
+            elif uri.startswith("manga/"):
+                uri = uri.replace("manga/", "page-data/", 1)
+            else:
+                print(f"Padrão inesperado em ch.id: {uri}")
+                parts = uri.strip('/').split('/')
+                if len(parts) >= 2:
+                    uri = f"page-data/{'/'.join(parts[1:])}"
+
+            base_path = f"{uri.strip('/')}/"
+            uri_base = urljoin(self.api_chapters, base_path)
+            count = 1
+            while True:
+                page_uri = urljoin(uri_base, f"{count}/")
+                try:
+                    response = Http.get(page_uri, timeout=getattr(self, 'timeout', None))
+                    soup = BeautifulSoup(response.content, 'html.parser')
+                    temp = soup.text
+                    image = dict(json.loads(temp)).get("image_url")
+                    if image:
+                        image_urls.append(image)
+                    count += 1
+                except Exception:
+                    break
+
+        if not image_urls and reader_response is not None:
+            raise Exception("Nenhuma página encontrada para o capítulo (reader).") from reader_error
+        if not image_urls:
+            raise Exception("Nenhuma página encontrada para o capítulo (api fallback).") from reader_error
+
+        number_match = re.findall(r'\d+\.?\d*', str(ch.number))
+        number = number_match[0] if number_match else str(ch.number)
+        return Pages(ch.id, number, ch.name, image_urls)
     
     def _get_chapters_ajax(self, manga_id):
         title = manga_id.split('/')[-2]

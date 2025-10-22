@@ -43,9 +43,10 @@ class MediocreToonsProvider(Base):
         headers = {
             "Accept": "application/json",
             "Origin": self.webBase,
-            "Referer": f"{self.webBase}/"
+            "Referer": f"{self.webBase}/",
+            "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
         }
-        response = Http.get(url, headers=headers, timeout=10)
+        response = Http.get(url, headers=headers, timeout=30)
         return response.json()
 
     def getManga(self, manga_url_or_id: str) -> Manga:
@@ -80,9 +81,6 @@ class MediocreToonsProvider(Base):
     def getPages(self, ch: Chapter) -> Pages:
         data = self._get_json(f"{self.base}/capitulos/{ch.id}")
         obra_id = str(data["obra"]["id"])
-        #numero_capitulo = str(data["numero"])
-        #nome_capitulo = ch.name
-        #nome_obra = ch.name
 
         imagens = [
             f"{self.cdn}/obras/{obra_id}/capitulos/{ch.number}/{p['src']}"

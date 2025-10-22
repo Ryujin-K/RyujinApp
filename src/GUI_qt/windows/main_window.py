@@ -141,7 +141,14 @@ class MangaDownloaderMainWindow:
 
     def chapter_download_button_clicked(self, chapter: Chapter, download_button):
         try:
+            scrollbar = None
+            scroll_value = 0
+            if hasattr(self.window, 'scrollArea'):
+                scrollbar = self.window.scrollArea.verticalScrollBar()
+                scroll_value = scrollbar.value()
             download_button.setEnabled(False)
+            if scrollbar is not None:
+                scrollbar.setValue(scroll_value)
             self.progress_manager.add_download(chapter, self.provider_selected)
         except Exception as e:
             print(f"Error in chapter download button clicked: {e}")

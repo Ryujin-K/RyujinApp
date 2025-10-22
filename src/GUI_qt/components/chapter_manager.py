@@ -93,6 +93,13 @@ class ChapterManager:
         log_info(f"Renderizando {len(self.chapters)} capítulos na interface")
         
         try:
+            # Preserve the scroll position while rebuilding the list
+            scrollbar = None
+            scroll_value = 0
+            if hasattr(self.parent_window, 'scrollArea'):
+                scrollbar = self.parent_window.scrollArea.verticalScrollBar()
+                scroll_value = scrollbar.value()
+
             # Limpa widgets existentes
             removed_count = 0
             while self.parent_window.verticalChapter.count():
@@ -132,6 +139,9 @@ class ChapterManager:
             
             # Adiciona espaçador
             self.parent_window.verticalChapter.addItem(self.vertical_spacer)
+
+            if scrollbar is not None:
+                scrollbar.setValue(min(scroll_value, scrollbar.maximum()))
 
             log_success(f"Interface renderizada com sucesso: {added_count} capítulos adicionados")
 

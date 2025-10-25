@@ -21,7 +21,13 @@ class WordPressMadara(Base):
         self.timeout=None
 
     def getManga(self, link: str) -> Manga:
-        response = Http.get(link, timeout=getattr(self, 'timeout', None))
+        headers = self._prepare_headers(referer=getattr(self, 'url', None))
+        response = Http.get(
+            link,
+            headers=headers,
+            cookies=self._clone_cookies(),
+            timeout=getattr(self, 'timeout', None)
+        )
         soup = BeautifulSoup(response.content, 'html.parser')
         data = soup.select(self.query_title_for_uri)
         element = data.pop()
@@ -30,7 +36,12 @@ class WordPressMadara(Base):
 
     def getChapters(self, id: str) -> List[Chapter]:
         uri = urljoin(self.url, id)
-        response = Http.get(uri, timeout=getattr(self, 'timeout', None))
+        response = Http.get(
+            uri,
+            headers=self._prepare_headers(referer=uri),
+            cookies=self._clone_cookies(),
+            timeout=getattr(self, 'timeout', None)
+        )
         soup = BeautifulSoup(response.content, 'html.parser')
         data = soup.select(self.query_title_for_uri)
         element = data.pop()
@@ -40,10 +51,10 @@ class WordPressMadara(Base):
         placeholder = dom.select_one(self.query_placeholder)
         if placeholder:
             try:
-                data = self._get_chapters_ajax(id)
+                data = self._get_chapters_ajax(id, referer=uri)
             except Exception:
                 try:
-                    data = self._get_chapters_ajax_old(placeholder['data-id'])
+                    data = self._get_chapters_ajax_old(placeholder['data-id'], referer=uri)
                 except Exception:
                     pass
 
@@ -60,12 +71,22 @@ class WordPressMadara(Base):
     def getPages(self, ch: Chapter) -> Pages:
         uri = urljoin(self.url, ch.id)
         uri = self._add_query_params(uri, {'style': 'list'})
-        response = Http.get(uri, timeout=getattr(self, 'timeout', None))
+        response = Http.get(
+            uri,
+            headers=self._prepare_headers(referer=uri),
+            cookies=self._clone_cookies(),
+            timeout=getattr(self, 'timeout', None)
+        )
         soup = BeautifulSoup(response.content, 'html.parser')
         data = soup.select(self.query_pages)
         if not data:
             uri = self._remove_query_params(uri, ['style'])
-            response = Http.get(uri, timeout=getattr(self, 'timeout', None))
+            response = Http.get(
+                uri,
+                headers=self._prepare_headers(referer=uri),
+                cookies=self._clone_cookies(),
+                timeout=getattr(self, 'timeout', None)
+            )
             soup = BeautifulSoup(response.content, 'html.parser')
             data = soup.select(self.query_pages)
         list = [] 
@@ -84,12 +105,20 @@ class WordPressMadara(Base):
             'vars[post_type]': 'wp-manga',
             'vars[posts_per_page]': '250'
         }
-        headers = {
-            'content-type': 'application/x-www-form-urlencoded',
-            'x-referer': self.url
-        }
+        headers = self._prepare_headers(
+            extra={
+                'Content-Type': 'application/x-www-form-urlencoded',
+                'X-Referer': self.url
+            }
+        )
         request_url = urljoin(self.url, f'{self.path}/wp-admin/admin-ajax.php')
-        return Http.post(request_url, data=urlencode(form), headers=headers, timeout=getattr(self, 'timeout', None))
+        return Http.post(
+            request_url,
+            data=urlencode(form),
+            headers=headers,
+            cookies=self._clone_cookies(),
+            timeout=getattr(self, 'timeout', None)
+        )
 
     def _fetch_dom(self, response: Response, query: str):
         soup = BeautifulSoup(response.content, 'html.parser')
@@ -100,23 +129,42 @@ class WordPressMadara(Base):
         data = self._fetch_dom(response, self.query_mangas)
         return [Manga(id=self.get_root_relative_or_absolute_link(el, response.url), name=el.text.strip()) for el in data]
 
-    def _get_chapters_ajax_old(self, data_id):
+    def _get_chapters_ajax_old(self, data_id, referer=None):
         uri = urljoin(self.url, f'{self.path}/wp-admin/admin-ajax.php')
-        response = Http.post(uri, data=f'action=manga_get_chapters&manga={data_id}', headers={
-            'content-type': 'application/x-www-form-urlencoded',
-            'x-referer': self.url
-        }, timeout=getattr(self, 'timeout', None))
+        headers = self._prepare_headers(
+            referer=referer or self.url,
+            extra={
+                'Content-Type': 'application/x-www-form-urlencoded',
+                'X-Referer': self.url
+            }
+        )
+        response = Http.post(
+            uri,
+            data=f'action=manga_get_chapters&manga={data_id}',
+            headers=headers,
+            cookies=self._clone_cookies(),
+            timeout=getattr(self, 'timeout', None)
+        )
         data = self._fetch_dom(response, self.query_chapters)
         if data:
             return data
         else:
             raise Exception('No chapters found (old ajax endpoint)!')
 
-    def _get_chapters_ajax(self, manga_id):
+    def _get_chapters_ajax(self, manga_id, referer=None):
         if not manga_id.endswith('/'):
             manga_id += '/'
         uri = urljoin(self.url, f'{manga_id}ajax/chapters/')
-        response = Http.post(uri, timeout=getattr(self, 'timeout', None))
+        headers = self._prepare_headers(
+            referer=referer or urljoin(self.url, manga_id),
+            extra={'X-Requested-With': 'XMLHttpRequest'}
+        )
+        response = Http.post(
+            uri,
+            headers=headers,
+            cookies=self._clone_cookies(),
+            timeout=getattr(self, 'timeout', None)
+        )
         data = self._fetch_dom(response, self.query_chapters)
         if data:
             return data
@@ -162,4 +210,25 @@ class WordPressMadara(Base):
     def create_connector_uri(self, payload):
         return payload['url']
     
+    def _clone_cookies(self):
+        cookies = getattr(self, 'cookies', None)
+        return cookies.copy() if isinstance(cookies, dict) else cookies
+
+    def _prepare_headers(self, referer=None, extra=None):
+        base_headers = getattr(self, 'headers', None)
+        if isinstance(base_headers, dict):
+            headers = base_headers.copy()
+        elif base_headers is None:
+            headers = {}
+        else:
+            return base_headers
+
+        if extra:
+            headers.update(extra)
+
+        if referer:
+            headers['Referer'] = referer
+
+        return headers if headers else None
+
 

@@ -10,10 +10,10 @@ from core.providers.infra.template.wordpress_madara import WordPressMadara
 class NexusScanProvider(WordPressMadara):
     name = 'Nexus Scan'
     lang = 'pt-Br'
-    domain = ['nexusscan.site']
+    domain = ['nexustoons.site']
 
     def __init__(self):
-        self.url = 'https://nexusscan.site/'
+        self.url = 'https://nexustoons.site/'
 
         self.path = ''
         
@@ -23,7 +23,7 @@ class NexusScanProvider(WordPressMadara):
         self.query_pages = 'div.page-break.no-gaps'
         self.query_title_for_uri = 'h1.item-title'
         self.query_placeholder = '[id^="manga-chapters-holder"][data-id]'
-        self.api_chapters = 'https://nexusscan.site/api/'
+        self.api_chapters = 'https://nexustoons.site/api/'
 
 
     def getChapters(self, id: str) -> List[Chapter]:

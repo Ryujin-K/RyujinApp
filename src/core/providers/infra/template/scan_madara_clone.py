@@ -79,20 +79,48 @@ class ScanMadaraClone(Base):
                             content = file.read()
                             if not os.path.exists(path):
                                 os.makedirs(path)
+                            
+                            original_ext = os.path.splitext(file_name)[1].lower()
+                            if not original_ext or original_ext not in ['.jpg', '.jpeg', '.png', '.webp', '.avif', '.gif', '.bmp']:
+                                original_ext = '.jpg'
+                            
+                            original_file = os.path.join(path, f"%03d{original_ext}" % page_number)
+                            
                             try:
                                 img = Image.open(BytesIO(content))
                                 img.verify()
+                                img = Image.open(BytesIO(content))
                                 icc = img.info.get('icc_profile')
-                                if img.mode in ("RGBA", "P"):
-                                    img = img.convert("RGB")
-                                file = os.path.join(path, f"%03d{img_format}" % page_number)
-                                files.append(file)
-                                img.save(file, quality=80, dpi=(72, 72), icc_profile=icc)
-                            except:
+                                
+                                img.save(original_file, quality=80, dpi=(72, 72), icc_profile=icc)
+                                
+                                if img_format.lower() != original_ext.lower():
+                                    try:
+                                        if img.mode in ("RGBA", "P") and img_format.lower() in ['.jpg', '.jpeg']:
+                                            img = img.convert("RGB")
+                                        
+                                        converted_file = os.path.join(path, f"%03d{img_format}" % page_number)
+                                        img.save(converted_file, quality=80, dpi=(72, 72), icc_profile=icc)
+                                        
+                                        # Se conversão bem-sucedida, apagar original e usar convertido
+                                        os.remove(original_file)
+                                        files.append(converted_file)
+                                    except Exception as convert_error:
+                                        # Se conversão falhar, manter original
+                                        print(f"Erro ao converter {original_file} para {img_format}: {convert_error}")
+                                        print(f"Mantendo imagem original: {original_file}")
+                                        files.append(original_file)
+                                else:
+                                    files.append(original_file)
+                                    
+                            except Exception as e:
                                 if response.status == 200:
-                                    file = os.path.join(path, f"%03d{img_format}" % page_number)
-                                    files.append(file)
-                                    Path(file).write_bytes(content)
+                                    try:
+                                        Path(original_file).write_bytes(content)
+                                        files.append(original_file)
+                                        print(f"Imagem salva diretamente (fallback): {original_file}")
+                                    except Exception as save_error:
+                                        print(f"Erro ao salvar imagem: {save_error}")
 
             if fn != None:
                 fn(math.ceil(i * 100)/len(pages.pages))

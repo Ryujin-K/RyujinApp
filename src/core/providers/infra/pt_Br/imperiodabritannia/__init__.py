@@ -47,27 +47,22 @@ class ImperiodabritanniaProvider(WordPressMadara):
             headers = self.headers
         return DownloadUseCase().execute(pages=pages, fn=fn, headers=headers, cookies=cookies)
     
-    def _get_chapters_ajax(self, manga_id):
-        return self._get_chapters_ajax_britannia(manga_id)
-    
-    def _get_chapters_ajax_britannia(self, manga_id):
-        if manga_id.startswith('http'):
-            manga_slug = manga_id.split('/manga/')[-1].rstrip('/')
+    def _get_chapters_ajax(self, manga_id, referer=None):
+        if not manga_id.endswith('/'):
+            manga_id += '/'
+        uri = urljoin(self.url, f'{manga_id}ajax/chapters/')
+        headers = self._prepare_headers(
+            referer=referer or urljoin(self.url, manga_id),
+            extra={'X-Requested-With': 'XMLHttpRequest'}
+        )
+        response = Http.post(
+            uri,
+            headers=headers,
+            cookies=self._clone_cookies(),
+            timeout=getattr(self, 'timeout', None)
+        )
+        data = self._fetch_dom(response, self.query_chapters)
+        if data:
+            return data
         else:
-            manga_slug = manga_id.rstrip('/')
-        
-        print(f"[DEBUG] ImperiodabritanniaProvider._get_chapters_ajax called with manga_id: {manga_id}")
-        uri = urljoin(self.url, f'manga/{manga_slug}/ajax/chapters/?t=1')
-        print(f"[DEBUG] URI gerada: {uri}")
-        ajax_headers = self.headers.copy()
-        ajax_headers['Referer'] = f'https://imperiodabritannia.com/manga/{manga_slug}/'
-        
-        response = Http.post(uri, data='', headers=ajax_headers)
-        if response.status == 200:
-            from core.__seedwork.infra.http.contract.http import Response
-            fixed_response = Response(response.status, response.data, response.data, response.url)
-            data = self._fetch_dom(fixed_response, self.query_chapters)
-            if data:
-                return data
-                
-        raise Exception('No chapters found (ajax endpoint failed)!')
+            raise Exception('No chapters found (new ajax endpoint)!')

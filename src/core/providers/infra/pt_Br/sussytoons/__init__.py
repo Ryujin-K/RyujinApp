@@ -1,13 +1,9 @@
 import re
-import math
-import asyncio
-import nodriver as uc
+import posixpath
 from typing import List
-from bs4 import BeautifulSoup
 from core.__seedwork.infra.http import Http
 from core.providers.infra.template.base import Base
 from core.providers.domain.entities import Chapter, Pages, Manga
-import json
 
 class NewSussyToonsProvider(Base):
     name = 'New Sussy Toons'
@@ -20,7 +16,6 @@ class NewSussyToonsProvider(Base):
         self.old = 'https://oldi.sussytoons.site/wp-content/uploads/WP-manga/data/'
         self.oldCDN = 'https://oldi.sussytoons.site/scans/1/obras'
         self.webBase = 'https://www.sussytoons.wtf'
-        self.cookies = [{'sussytoons-terms-accepted', 'true'}]
     
     def getManga(self, link: str) -> Manga:
         match = re.search(r'/obra/(\d+)', link)
@@ -43,102 +38,61 @@ class NewSussyToonsProvider(Base):
             print(e)
 
 
-    def get_Pages(self, id, sleep, background = False):
-        async def get_Pages_driver():
-            inject_script = """
-            const mockResponse = {
-                statusCode: 200,
-                resultado: {
-                    usr_id: 83889,
-                    usr_nome: "White_Preto",
-                    usr_email: "emailgay@gmail.com",
-                    usr_nick: "emailgay",
-                    usr_imagem: null,
-                    usr_banner: null,
-                    usr_moldura: null,
-                    usr_criado_em: "2025-02-26 16:34:19.591",
-                    usr_atualizado_em: "2025-02-26 16:34:19.591",
-                    usr_status: "ATIVO",
-                    vip_habilitado: true,
-                    vip_habilitado_em: "2025-02-26 16:34:19.591",
-                    vip_temporario_em: null,
-                    vip_acaba_em: "2035-02-26 16:34:19.591",
-                    usr_google_token: null,
-                    scan: {
-                        scan_id: 1,
-                        scan_nome: "Sussy"
-                    },
-                    scan_id: 1,
-                    tags: []
-                }
-            };
-
-            // Intercepta todas as requisições para a API
-            const originalFetch = window.fetch;
-            window.fetch = async function(url, options) {
-                if (url.includes('api.sussytoons.wtf/me')) {
-                    return new Response(JSON.stringify(mockResponse), {
-                        status: 200,
-                        headers: {'Content-Type': 'application/json'}
-                    });
-                }
-                return originalFetch(url, options);
-            };
-            """
-
-            browser = await uc.start(
-                browser_args=[
-                    '--window-size=600,600', 
-                    f'--app={id}',
-                    '--disable-extensions', 
-                    '--disable-popup-blocking'
-                ],
-                browser_executable_path=None,
-                headless=background
-            )
-            page = await browser.get(id)
-            await browser.cookies.set_all(self.cookies)
-            
-            await page.evaluate(inject_script)
-            
-            await asyncio.sleep(sleep)
-            html = await page.get_content()
-            browser.stop() 
-            return html
-        resultado = uc.loop().run_until_complete(get_Pages_driver())
-        return resultado
-    
     def getPages(self, ch: Chapter) -> Pages:
+        cap_id = None
+        if isinstance(ch.id, (list, tuple)) and ch.id:
+            cap_id = ch.id[1] if len(ch.id) > 1 else ch.id[0]
+        else:
+            cap_id = ch.id
+
+        if cap_id is None:
+            raise ValueError('Identificador de capítulo inválido')
+
+        cap_id = str(cap_id).strip()
+        if not cap_id:
+            raise ValueError('Identificador de capítulo inválido')
+
+        response = Http.get(f'{self.base}/capitulos/{cap_id}')
+        data = response.json().get('resultado', {})
+
+        paginas = data.get('cap_paginas') or []
+        if not paginas:
+            raise RuntimeError('Nenhuma página disponível para este capítulo')
+
         images = []
-        base_delay = 25  
-        max_delay = 300 
-        max_attempts = 5 
-        attempt = 0
+        cdn_base = self.CDN.rstrip('/')
 
-        while attempt < max_attempts:
-            try:
-                current_delay = min(base_delay * math.pow(2, attempt), max_delay)
-                
-                print(f"Attempt {attempt + 1} - Using {current_delay} seconds delay")
-                
-                html = self.get_Pages(
-                    id=f'{self.webBase}/capitulo/{ch.id[1]}',
-                    sleep=current_delay,
-                    background=attempt > 1 
-                )
-                
-                soup = BeautifulSoup(html, 'html.parser')
-                images = [img.get('src') for img in soup.select('img.chakra-image.css-8atqhb')]
-                
-                if images:
-                    print("Successfully fetched images")
-                    break
-                else:
-                    print("No images found, retrying...")
+        def _format_wp_path(src_value: str) -> str:
+            cleaned = src_value.lstrip('/')
+            if cleaned.startswith('manga_'):
+                return f'wp-content/uploads/WP-manga/data/{cleaned}'
+            if cleaned.startswith('uploads/'):
+                return f'wp-content/{cleaned}'
+            if cleaned.startswith('WP-manga'):
+                return f'wp-content/uploads/{cleaned}'
+            if cleaned.startswith('wp-content/'):
+                return cleaned
+            return cleaned
 
-            except Exception as e:
-                print(f"Attempt {attempt + 1} failed: {str(e)}")
-            
-            attempt += 1
+        for pagina in paginas:
+            path = (pagina.get('path') or '').strip('/')
+            src = pagina.get('src') or ''
+            if not src:
+                continue
+
+            if src.startswith('http'):  # already absolute
+                images.append(src)
+                continue
+
+            if any(src.startswith(prefix) for prefix in ('manga_', 'uploads/', 'WP-manga', 'wp-content/')):
+                normalized = _format_wp_path(src)
+                images.append(f'{cdn_base}/{normalized}')
+                continue
+
+            normalized_path = posixpath.join(path, src.lstrip('/')) if path else src.lstrip('/')
+            images.append(f'{cdn_base}/{normalized_path}')
+
+        if not images:
+            raise RuntimeError('Não foi possível construir as URLs das páginas do capítulo')
 
         return Pages(ch.id, ch.number, ch.name, images)

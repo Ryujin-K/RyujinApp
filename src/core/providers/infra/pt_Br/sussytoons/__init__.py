@@ -2,6 +2,7 @@ import re
 import posixpath
 from typing import List
 from core.__seedwork.infra.http import Http
+from core.download.application.use_cases import DownloadUseCase
 from core.providers.infra.template.base import Base
 from core.providers.domain.entities import Chapter, Pages, Manga
 
@@ -30,10 +31,10 @@ class NewSussyToonsProvider(Base):
             id_value = match.group(1)
             response = Http.get(f'{self.base}/obras/{id_value}').json()
             title = response['resultado']['obr_nome']
-            list = []
+            chapters = []
             for ch in response['resultado']['capitulos']:
-                list.append(Chapter([id_value, ch['cap_id']], ch['cap_nome'], title))
-            return list
+                chapters.append(Chapter(str(ch['cap_id']), ch['cap_nome'], title))
+            return chapters
         except Exception as e:
             print(e)
 
@@ -96,3 +97,20 @@ class NewSussyToonsProvider(Base):
             raise RuntimeError('Não foi possível construir as URLs das páginas do capítulo')
 
         return Pages(ch.id, ch.number, ch.name, images)
+
+    def download(self, pages: Pages, fn: any, headers=None, cookies=None):
+        effective_headers = {}
+        if isinstance(headers, dict):
+            effective_headers.update(headers)
+
+        # CDN bloqueia requisições sem referer; mantemos user-agent padrão do cloudscraper
+        effective_headers.setdefault('Referer', self.webBase)
+        effective_headers.setdefault('Origin', self.webBase)
+        effective_headers.setdefault('Accept', 'image/avif,image/webp,image/apng,image/*,*/*;q=0.8')
+
+        return DownloadUseCase().execute(
+            pages=pages,
+            fn=fn,
+            headers=effective_headers,
+            cookies=cookies
+        )

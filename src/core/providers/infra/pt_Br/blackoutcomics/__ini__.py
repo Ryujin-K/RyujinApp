@@ -8,7 +8,7 @@ from core.providers.domain.entities import Chapter, Pages, Manga
 from core.config.login_data import insert_login, LoginData, get_login, delete_login
 
 class BlackoutProvider(Base):
-    name = 'Blackout/TopToon'
+    name = 'Blackout Comics'
     lang = 'pt_Br'
     domain = ['toptoon.com.co']
     has_login = True

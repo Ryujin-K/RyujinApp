@@ -243,12 +243,15 @@ class MangaDownloaderMainWindow:
         if self.manga_id_selected is None:
             return
 
-        downloaded_chapter_ids = self.progress_manager.get_downloaded_chapter_ids()
+        normalize_id = self.progress_manager.normalize_chapter_id
+        downloaded_chapter_ids = {
+            normalize_id(ch_id) for ch_id in self.progress_manager.get_downloaded_chapter_ids()
+        }
 
         chapters_to_download = [
             (chapter, self.provider_selected)
             for chapter in self.chapter_manager.chapters
-            if chapter.id not in downloaded_chapter_ids
+            if normalize_id(chapter.id) not in downloaded_chapter_ids
         ]
 
         if chapters_to_download:

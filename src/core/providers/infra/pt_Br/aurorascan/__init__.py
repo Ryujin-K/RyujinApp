@@ -1,184 +1,135 @@
 import re
-import math
-import asyncio
-from urllib import request
-import nodriver as uc
-from typing import List
-from bs4 import BeautifulSoup
+from typing import Dict, List, Optional
+from urllib.parse import urlparse
 from core.__seedwork.infra.http import Http
 from core.providers.infra.template.base import Base
 from core.providers.domain.entities import Chapter, Pages, Manga
-import json
-
 
 class AurorascanProvider(Base):
     name = 'Aurora Scan'
     lang = 'pt_Br'
-    domain = ['aurorascan.net']
+    domain = ['www.serenitytoons.win', 'serenitytoons.win']
 
     def __init__(self) -> None:
         self.base = 'https://api.sussytoons.wtf'
         self.CDN = 'https://cdn.sussytoons.site'
-        self.old = 'https://oldi.sussytoons.site/wp-content/uploads/WP-manga/data/'
-        self.chapter = 'https://aurorascan.net/capitulo'
-        self.webBase = 'https://www.sussytoons.wtf'
-        self.cookies = [{'sussytoons-terms-accepted', 'true'}]
-    
+        self.webBase = 'https://www.serenitytoons.win'
+        self._default_host = self.domain[0]
+        self._current_host: str = self._default_host
+        self._host_cache: Dict[str, str] = {}
+        self._manga_cache: Dict[str, Dict] = {}
+
+    def _resolve_host(self, url: Optional[str]) -> str:
+        if not url:
+            return self._current_host or self._default_host
+
+        parsed = urlparse(url)
+        host = parsed.hostname
+        if host:
+            self._current_host = host
+        return self._current_host or self._default_host
+
+    def _store_host(self, manga_id: Optional[str], host: str) -> None:
+        if manga_id:
+            self._host_cache[str(manga_id)] = host
+
+    def _headers(self, manga_id: Optional[str] = None) -> Dict[str, str]:
+        host = self._host_cache.get(str(manga_id)) if manga_id else None
+        if not host:
+            host = self._current_host or self._default_host
+        return {'scan-id': host}
+
+    def _manga_id_from_url(self, link: str) -> Optional[str]:
+        match = re.search(r'/obra/(\d+)', link)
+        return match.group(1) if match else None
+
+    def _fetch_manga_data(self, manga_id: str) -> Dict:
+        if manga_id in self._manga_cache:
+            return self._manga_cache[manga_id]
+
+        response = Http.get(f'{self.base}/obras/{manga_id}', headers=self._headers(manga_id))
+        data = response.json().get('resultado', {})
+        if data:
+            self._manga_cache[manga_id] = data
+        return data
+
     def getManga(self, link: str) -> Manga:
-        response = Http.get(link)
-        soup = BeautifulSoup(response.content, 'html.parser')
-        title = soup.select_one('title')
-        return Manga(link, title.get_text())
-    
-    def extract_json_object(self, text, key):
-        inicio = text.find(f'"{key}":')
-        if inicio == -1:
-            return None
+        manga_id = self._manga_id_from_url(link)
+        host = self._resolve_host(link)
+        self._store_host(manga_id, host)
 
-        inicio_json = text.find('{', inicio)
-        if inicio_json == -1:
-            return None
+        if not manga_id:
+            raise ValueError('Link de obra inválido para Aurora Scan')
 
-        contador = 0
-        fim_json = inicio_json
+        data = self._fetch_manga_data(manga_id)
+        title = data.get('obr_nome') or 'Mangá'
+        return Manga(link, title)
 
-        for i, char in enumerate(text[inicio_json:], start=inicio_json):
-            if char == '{':
-                contador += 1
-            elif char == '}':
-                contador -= 1
-                if contador == 0:
-                    fim_json = i + 1
-                    break
+    def getChapters(self, link: str) -> List[Chapter]:
+        manga_id = self._manga_id_from_url(link)
+        host = self._resolve_host(link)
+        self._store_host(manga_id, host)
 
-        json_str = text[inicio_json:fim_json]
-        try:
-            return json.loads(json_str)
-        except json.JSONDecodeError as e:
-            print("Erro ao decodificar JSON:", e)
-            print("JSON bruto:", json_str)
-            return None
-    
-    def getChapters(self, id: str) -> List[Chapter]:
-        try:
-            match = re.search(r'/obra/(\d+)', id)
-            id_value = match.group(1)
-            response = Http.get(id)
-            soup = BeautifulSoup(response.content, 'html.parser')
-            title = soup.select_one('title')
-            scripts = soup.find_all('script')
-            target_script = None
-            for script in scripts:
-                if script.string and 'cap_id' in script.string:
-                    print(f"Script encontrado")
-                    target_script = script.string
-                    break
-            match = re.search(r'self\.__next_f\.push\(\[1,"(5:.*?)"\]\)', target_script, re.DOTALL)
-            list = []
-            if not match:
-                print("Não foi possível extrair a string JSON embutida.")
-            else:
-                json_raw = match.group(1)
+        if not manga_id:
+            raise ValueError('Link de obra inválido para Aurora Scan')
 
-                escape = json_raw.encode().decode("unicode_escape")
+        data = self._fetch_manga_data(manga_id)
+        title = data.get('obr_nome', 'Mangá')
 
-                result = self.extract_json_object(escape, "resultado")
-                
-                if result:
-                    for cap in result['capitulos']:
-                        list.append(Chapter([id_value, cap['cap_id']], cap['cap_nome'].encode('latin1').decode('utf-8'), title.get_text()))
-                else:
-                    print("Não foi possível extrair o JSON de capítulos.")
-            return list
-        except Exception as e:
-            print(e)
-        
+        chapters: List[Chapter] = []
+        for chapter in data.get('capitulos', []):
+            cap_id = chapter.get('cap_id')
+            cap_name = chapter.get('cap_nome') or f"Capítulo {chapter.get('cap_numero')}"
+            chapters.append(Chapter([manga_id, cap_id], cap_name, title))
+
+        return chapters
+
     def getPages(self, ch: Chapter) -> Pages:
-        try:
-            if not hasattr(ch, 'id') or not isinstance(ch.id, (list, tuple)) or len(ch.id) < 2:
-                raise ValueError("ch.id deve ser uma lista/tupla com pelo menos 2 elementos")
-            if not hasattr(ch, 'number') or not isinstance(ch.number, str):
-                raise ValueError("ch.number deve ser uma string válida")
-            if not hasattr(ch, 'name'):
-                raise ValueError("ch.name deve estar definido")
-            if not hasattr(self, 'CDN') or not self.CDN:
-                raise ValueError("self.CDN deve estar definido e não vazio")
-            if not hasattr(self, 'chapter') or not self.chapter:
-                raise ValueError("self.chapter deve estar definido e não vazio")
+        cap_id: Optional[str]
+        manga_id: Optional[str] = None
 
-            chapter_number_parts = ch.number.split(' ')
-            if len(chapter_number_parts) < 2:
-                raise ValueError(f"Formato de número de capítulo inválido: {ch.number}")
-            chapter_number = chapter_number_parts[1]
+        if isinstance(ch.id, (list, tuple)):
+            manga_id = str(ch.id[0]) if len(ch.id) > 0 else None
+            cap_id = ch.id[1] if len(ch.id) > 1 else ch.id[0]
+        else:
+            cap_id = ch.id
 
-            chapter_url = f"{self.chapter}/{ch.id[1]}"
-            response = Http.get(chapter_url)
-            if response.status not in range(200, 300):
-                raise RuntimeError(f"Failed to fetch chapter data: {response.status} - {chapter_url}")
+        if not cap_id:
+            raise ValueError('Identificador de capítulo inválido')
 
-            base_url = f"{self.CDN}/scans/4/obras/{ch.id[0]}/capitulos/{chapter_number}/"
+        headers = self._headers(manga_id)
+        data = Http.get(f'{self.base}/capitulos/{cap_id}', headers=headers).json().get('resultado', {})
+        paginas = data.get('cap_paginas') or []
 
-            format_functions = [
-                lambda n: str(n),      
-                lambda n: f"{n:02d}",  
-                lambda n: f"{n:03d}"     
-            ]
+        images: List[str] = []
+        cdn_base = self.CDN.rstrip('/')
 
-            suffixes = ["", "_copiar", " (1) final copiar"]
-            extensions = ["jpg", "webp", "png"]
+        for pagina in paginas:
+            src = (pagina.get('src') or '').strip()
+            path = (pagina.get('path') or '').strip('/ ')
 
-            fixed_fmt = None
-            fixed_suff = None
-            fixed_ext = None
-            found_first = False
+            if not src:
+                continue
 
-            for fmt in format_functions:
-                for suff in suffixes:
-                    for ext in extensions:
-                        page_str = fmt(1)
-                        filename = f"{page_str}{suff}.{ext}"
-                        url = base_url + filename
-                        try:
-                            response = Http.get(url)
-                            if response.status in range(200, 300):
-                                fixed_fmt = fmt
-                                fixed_suff = suff
-                                fixed_ext = ext
-                                found_first = True
-                                break
-                        except Exception as e:
-                            print(f"Falha na requisição para {url}: {e}")
-                    if found_first:
-                        break
-                if found_first:
-                    break
+            if src.startswith('http'):
+                images.append(src)
+                continue
 
-            if not found_first:
-                raise RuntimeError("Nenhuma URL de imagem válida encontrada para a página 1")
+            combined_path = '/'.join(part for part in [path, src.lstrip('/')] if part)
+            images.append(f'{cdn_base}/{combined_path}')
 
-            image_urls = []
-            current = 1
-            max_pages = 1000 
+        if not images:
+            raise RuntimeError('Nenhuma página disponível para este capítulo')
 
-            while len(image_urls) < max_pages:
-                page_str = fixed_fmt(current)
-                filename = f"{page_str}{fixed_suff}.{fixed_ext}"
-                url = base_url + filename
-                try:
-                    response = Http.get(url)
-                    if response.status in range(200, 300):
-                        image_urls.append(url)
-                        current += 1
-                    else:
-                        break
-                except Exception as e:
-                    print(f"Falha na requisição para {url}: {e}")
-                    break
+        return Pages(ch.id, ch.number, ch.name, images)
 
-            if not image_urls:
-                raise RuntimeError("Nenhuma URL de imagem válida encontrada")
-            return Pages(ch.id, ch.number, ch.name, image_urls)
+    def download(self, pages: Pages, fn: any, headers=None, cookies=None):
+        effective_headers = {}
+        if isinstance(headers, dict):
+            effective_headers.update(headers)
 
-        except Exception as e:
-            print(f"Erro em getPages: {str(e)}")
-            raise
+        effective_headers.setdefault('Referer', self.webBase)
+        effective_headers.setdefault('Origin', self.webBase)
+        effective_headers.setdefault('Accept', 'image/avif,image/webp,image/apng,image/*,*/*;q=0.8')
+
+        return super().download(pages=pages, fn=fn, headers=effective_headers, cookies=cookies)

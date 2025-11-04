@@ -88,5 +88,20 @@ class ProgressManager:
     def clear_download_status(self):
         self.download_status.clear()
 
+    @staticmethod
+    def _normalize_id(ch_id):
+        if isinstance(ch_id, list):
+            return tuple(ch_id)
+        return ch_id
+
+    def normalize_chapter_id(self, ch_id):
+        return self._normalize_id(ch_id)
+
     def get_downloaded_chapter_ids(self):
-        return {ch.id for ch, *_ in self.download_status}
+        normalized_ids = set()
+        for ch, *_ in self.download_status:
+            normalized_ids.add(self._normalize_id(ch.id))
+        return normalized_ids
+
+    def is_downloaded(self, chapter):
+        return self._normalize_id(chapter.id) in self.get_downloaded_chapter_ids()

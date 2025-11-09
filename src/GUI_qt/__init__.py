@@ -36,6 +36,7 @@ if __name__ == "__main__":
         def show_main_app():
             try:
                 loading_window.close()
+                main_app.refresh_providers()
                 main_app.window.show()
             except Exception as e:
                 print(f"Error displaying main application: {e}")

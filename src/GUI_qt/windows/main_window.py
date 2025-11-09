@@ -24,7 +24,7 @@ class MangaDownloaderMainWindow:
     def __init__(self, app=None):
         self.provider_selected = None
         self.manga_id_selected = None
-        self.providers = import_classes_recursively()
+        self.providers = []
 
         self.current_dir = str(paths.gui_dir)
         self.assets = str(paths.assets_dir)
@@ -50,6 +50,8 @@ class MangaDownloaderMainWindow:
         self._setup_ui()
         self._connect_signals()
         self._initialize_config()
+
+        self.refresh_providers()
 
     def run(self):
         self.window.show()
@@ -340,3 +342,10 @@ class MangaDownloaderMainWindow:
     @property
     def download_status(self):
         return self.progress_manager.download_status
+
+    def refresh_providers(self):
+        """Reload providers so standalone builds pick up repo updates."""
+        self.providers = import_classes_recursively()
+        if self.websites_window is not None:
+            self.websites_window.close()
+            self.websites_window = None

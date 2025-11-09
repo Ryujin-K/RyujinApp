@@ -10,17 +10,24 @@ from .paths import paths
 def base_path():
     return paths.base_dir
 
-def get_providers_path():
+def get_providers_path() -> Path:
+    """Resolve the directory that stores provider implementations."""
+    if paths.is_executable:
+        repo_providers = paths.repo_dir / 'src' / 'core' / 'providers' / 'infra'
+        if repo_providers.exists():
+            return repo_providers
     return paths.providers_dir
 
 def get_assets_path():
     return paths.assets_dir
 
-package_path = str(get_providers_path())
 ignore_folders = ['template', '__pycache__']
 
-def _get_class(package_path, ignore_folders):
+def _get_class(package_path: Path, ignore_folders):
     classes = []
+
+    if not package_path.exists():
+        return classes
 
     for root, dirs, files in os.walk(package_path):
         dirs[:] = [d for d in dirs if d not in ignore_folders]
@@ -31,6 +38,10 @@ def _get_class(package_path, ignore_folders):
                 module_path = os.path.join(root, file)
 
                 spec = importlib.util.spec_from_file_location(module_name, module_path)
+                if not spec or not spec.loader:
+                    continue
+
+                sys.modules.pop(module_name, None)
                 module = importlib.util.module_from_spec(spec)
                 spec.loader.exec_module(module)
 
@@ -42,21 +53,18 @@ def _get_class(package_path, ignore_folders):
     return classes
 
 def import_classes_recursively() -> List[ProviderRepository]:
-    global ignore_folders, package_path
     classes = []
 
     config = get_config()
 
-    classes += _get_class(package_path, ignore_folders)
+    providers_path = get_providers_path()
+    classes += _get_class(providers_path, ignore_folders)
 
-    if config.external_provider:
-        external = _get_class(config.external_provider_path, ignore_folders)
+    if config and config.external_provider and config.external_provider_path:
+        external = _get_class(Path(config.external_provider_path), ignore_folders)
 
-        for c in classes:
-            for ex in external:
-                if c.domain == ex.domain:
-                    classes.remove(c)
-        
-        classes += external
+        if external:
+            classes = [c for c in classes if all(c.domain != ex.domain for ex in external)]
+            classes.extend(external)
 
     return classes

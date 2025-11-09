@@ -31,9 +31,7 @@ templates = [
         {'name': 'Link do site', 'value': 'link'},
     ]},
     {'name': 'Wordpress Etoshore Manga Theme', 'template': 'wordpress_etoshore_manga_theme.py.jinja', 'variables': []},
-    {'name': 'Blogger CMS', 'template': 'blogger_cms.py.jinja', 'variables': []},
-    {'name': 'Yushuke Theme', 'template': 'yushuke_theme.py.jinja', 'variables': []},
-    {'name': 'SPA Theme', 'template': 'SPA_theme.py.jinja', 'variables': []}
+    {'name': 'Blogger CMS', 'template': 'blogger_cms.py.jinja', 'variables': []}
 ]
 
 providers = os.path.join(Path('.') / 'src', 'core', 'providers', 'infra')

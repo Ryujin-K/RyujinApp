@@ -16,6 +16,7 @@ class SussyToonsProvider(Base):
         self.CDN = 'https://cdn.sussytoons.wtf'
         self.webBase = 'https://www.sussytoons.wtf'
         self._manga_cache: Dict[str, Dict[str, Any]] = {}
+        self._download_timeout = 60
     
     def getManga(self, link: str) -> Manga:
         identifier = self._extract_identifier(link)
@@ -130,7 +131,8 @@ class SussyToonsProvider(Base):
             pages=pages,
             fn=fn,
             headers=effective_headers,
-            cookies=cookies
+            cookies=cookies,
+            timeout=self._download_timeout
         )
 
     def _extract_identifier(self, link: str) -> str:

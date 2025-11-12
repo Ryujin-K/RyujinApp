@@ -7,12 +7,21 @@ from core.__seedwork.infra.http import Http
 class MediocreToonsProvider(Base):
     name = "Mediocre Toons"
     lang = "pt_Br"
-    domain = ["mediocretoons.com", "www.mediocretoons.com"]
+    domain = [
+        "mediocretoons.site",
+        "www.mediocretoons.site",
+        "mediocretoons.com",
+        "www.mediocretoons.com",
+    ]
 
     def __init__(self) -> None:
-        self.base = "https://api.mediocretoons.com"
+        self.api_base_urls = [
+            "https://api.mediocretoons.site",
+            "https://api.mediocretoons.com",
+        ]
+        self.base = self.api_base_urls[0]
         self.cdn = "https://storage.mediocretoons.com"
-        self.webBase = "https://mediocretoons.com"
+        self.webBase = "https://mediocretoons.site"
 
     def _extract_id(self, url_or_id) -> str:
         """Aceita ID numérico, decimal ou string"""
@@ -20,6 +29,7 @@ class MediocreToonsProvider(Base):
             return str(url_or_id)
 
         url_str = str(url_or_id).strip()
+        url_str = url_str.split("?", 1)[0]
 
         try:
             float(url_str)
@@ -27,14 +37,13 @@ class MediocreToonsProvider(Base):
         except ValueError:
             pass
 
-        parts = url_str.strip("/").split("/")
-        if len(parts) >= 2:
-            potential_id = parts[-2]
+        parts = [segment for segment in url_str.strip("/").split("/") if segment]
+        for segment in reversed(parts):
             try:
-                float(potential_id)
-                return potential_id
+                float(segment)
+                return segment
             except ValueError:
-                pass
+                continue
 
         return url_str
 
@@ -49,14 +58,29 @@ class MediocreToonsProvider(Base):
         response = Http.get(url, headers=headers, timeout=30)
         return response.json()
 
+    def _fetch_api(self, endpoint: str) -> dict:
+        """Tenta consumir o endpoint em todas as bases disponíveis"""
+        last_error = None
+        for base_url in self.api_base_urls:
+            try:
+                url = f"{base_url}{endpoint}"
+                data = self._get_json(url)
+                self.base = base_url
+                return data
+            except Exception as error:
+                last_error = error
+        if last_error:
+            raise last_error
+        raise RuntimeError("Nenhuma base da API configurada")
+
     def getManga(self, manga_url_or_id: str) -> Manga:
         manga_id = self._extract_id(manga_url_or_id)
-        data = self._get_json(f"{self.base}/obras/{manga_id}")
+        data = self._fetch_api(f"/obras/{manga_id}")
         return Manga(id=str(data["id"]), name=data["nome"])
 
     def getChapters(self, manga_url_or_id: str) -> List[Chapter]:
         manga_id = self._extract_id(manga_url_or_id)
-        data = self._get_json(f"{self.base}/obras/{manga_id}")
+        data = self._fetch_api(f"/obras/{manga_id}")
         manga_name = data["nome"]
 
         chapters_list = [
@@ -79,7 +103,7 @@ class MediocreToonsProvider(Base):
         return chapters_list
 
     def getPages(self, ch: Chapter) -> Pages:
-        data = self._get_json(f"{self.base}/capitulos/{ch.id}")
+        data = self._fetch_api(f"/capitulos/{ch.id}")
         obra_id = str(data["obra"]["id"])
 
         imagens = [

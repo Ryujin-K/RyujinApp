@@ -20,7 +20,7 @@ class MediocreToonsProvider(Base):
             "https://api.mediocretoons.com",
         ]
         self.base = self.api_base_urls[0]
-        self.cdn = "https://storage.mediocretoons.com"
+        self.cdn = "https://cdn.mediocretoons.site"
         self.webBase = "https://mediocretoons.site"
 
     def _extract_id(self, url_or_id) -> str:
@@ -105,9 +105,10 @@ class MediocreToonsProvider(Base):
     def getPages(self, ch: Chapter) -> Pages:
         data = self._fetch_api(f"/capitulos/{ch.id}")
         obra_id = str(data["obra"]["id"])
+        capitulo_numero = str(data["numero"])
 
         imagens = [
-            f"{self.cdn}/obras/{obra_id}/capitulos/{ch.number}/{p['src']}"
+            f"{self.cdn}/obras/{obra_id}/capitulos/{capitulo_numero}/{p['src']}"
             for p in data.get("paginas", [])
         ]
 

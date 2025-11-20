@@ -2,7 +2,10 @@ from core.providers.infra.template.wordpress_etoshore_manga_theme import Wordpre
 from typing import List
 from core.__seedwork.infra.http import Http
 from bs4 import BeautifulSoup
-from core.providers.domain.entities import Chapter, Manga
+from core.providers.domain.entities import Chapter, Manga, Pages
+import re
+import json
+import html
 
 class ApeComicsProvider(WordpressEtoshoreMangaTheme):
     name = 'Ape Comics'
@@ -34,3 +37,39 @@ class ApeComicsProvider(WordpressEtoshoreMangaTheme):
             number = ch.select_one(self.get_chapter_number)
             list.append(Chapter(ch.get('href'), number.get_text().strip(), title.get_text().strip()))
         return list
+    
+    def getPages(self, ch: Chapter) -> Pages:
+        response = Http.get(ch.id)
+        soup = BeautifulSoup(response.content, 'html.parser')
+        
+        scripts = soup.find_all('script')
+        images_list = []
+        
+        for script in scripts:
+            if script.string and 'ts_reader.run' in script.string:
+
+                match = re.search(r'ts_reader\.run\((.*?)\);', script.string, re.DOTALL)
+                if match:
+                    try:
+
+                        json_str = match.group(1)
+                        data = json.loads(json_str)
+                        
+                        if 'sources' in data and len(data['sources']) > 0:
+                            if 'images' in data['sources'][0]:
+                                for img_url in data['sources'][0]['images']:
+
+                                    decoded_url = html.unescape(img_url)
+                                    images_list.append(decoded_url)
+                                break
+                    except json.JSONDecodeError:
+                        pass
+        
+        if not images_list:
+            images = soup.select_one(self.get_div_page)
+            if images:
+                image = images.select(self.get_pages)
+                for img in image:
+                    images_list.append(img.get('src'))
+        
+        return Pages(ch.id, ch.number, ch.name, images_list)

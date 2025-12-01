@@ -38,6 +38,13 @@
              </widget>
             </item>
             <item>
+             <widget class="QPushButton" name="logins">
+              <property name="text">
+               <string>Logins</string>
+              </property>
+             </widget>
+            </item>
+            <item>
              <widget class="QPushButton" name="link">
               <property name="text">
                <string>Colar link</string>

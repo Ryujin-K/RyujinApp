@@ -16,6 +16,7 @@ from GUI_qt.components.progress_manager import ProgressManager
 from GUI_qt.components.config_manager import ConfigManager
 from GUI_qt.windows.logs import LogWindow
 from GUI_qt.windows.websites import WebSiteOpener
+from GUI_qt.windows.login_manager import LoginManagerWindow
 from core.config.img_conf import get_config as get_img_config, update_split_height, update_custom_width, update_detection_sensitivity, update_scan_line_step, update_ignorable_pixels
 from core.providers.domain.entities import Chapter, Manga
 
@@ -38,6 +39,7 @@ class MangaDownloaderMainWindow:
         self.config_manager = ConfigManager(self.window)
 
         self.websites_window = None
+        self.login_manager_window = None
         self.log_window = None
         self.init_log = False
 
@@ -80,6 +82,7 @@ class MangaDownloaderMainWindow:
             self.config_manager.set_external_path_folder)
         self.window.progress.clicked.connect(self.open_progress_window)
         self.window.websites.clicked.connect(self.open_websites)
+        self.window.logins.clicked.connect(self.open_login_manager)
         self.window.downloadAll.clicked.connect(self.download_all_chapters)
         self.window.link.clicked.connect(self.manga_by_link)
         self.window.invert.clicked.connect(
@@ -339,6 +342,11 @@ class MangaDownloaderMainWindow:
             self.websites_window = WebSiteOpener(self.providers)
         self.websites_window.show()
 
+    def open_login_manager(self):
+        if self.login_manager_window is None:
+            self.login_manager_window = LoginManagerWindow(self.providers)
+        self.login_manager_window.show()
+
     @property
     def download_status(self):
         return self.progress_manager.download_status
@@ -349,3 +357,6 @@ class MangaDownloaderMainWindow:
         if self.websites_window is not None:
             self.websites_window.close()
             self.websites_window = None
+        if self.login_manager_window is not None:
+            self.login_manager_window.close()
+            self.login_manager_window = None

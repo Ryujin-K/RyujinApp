@@ -5,7 +5,7 @@ from typing import List
 from core.__seedwork.infra.http import Http
 from core.providers.infra.template.base import Base
 from core.providers.domain.entities import Chapter, Pages, Manga
-from core.config.login_data import insert_login, LoginData, get_login, delete_login
+from core.config.login_data import insert_login, LoginData, get_login, delete_login, ensure_login_headers
 from core.config.user_credentials import get_credentials, has_credentials
 from core.download.application.use_cases import DownloadUseCase
 
@@ -27,13 +27,17 @@ class SussyToonsProvider(Base):
         login_info = get_login(self.domain_name)
         if login_info and login_info.headers.get('authorization'):
             self.access_token = login_info.headers.get('authorization').replace('Bearer ', '')
+            ensure_login_headers(self.domain_name, {'scan-id': '1'})
             print(f"[{self.name}] Token carregado")
     
     def _save_token(self, token: str) -> None:
         self.access_token = token
         insert_login(LoginData(
             self.domain_name,
-            {'authorization': f'Bearer {token}'},
+            {
+                'authorization': f'Bearer {token}',
+                'scan-id': '1'
+            },
             {}
         ))
         print(f"[{self.name}] Token salvo")
@@ -105,9 +109,11 @@ class SussyToonsProvider(Base):
     
     def _get_headers(self) -> dict:
         headers = {
-            "accept": "application/json",
+            "accept": "application/json, text/plain, */*",
+            "origin": self.web_base,
             "referer": f"{self.web_base}/",
-            "user-agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36"
+            "scan-id": "1",
+            "user-agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/142.0.0.0 Safari/537.36"
         }
         if self.access_token:
             headers['Authorization'] = f'Bearer {self.access_token}'
@@ -226,10 +232,29 @@ class SussyToonsProvider(Base):
                     timestamp = int(time.time() * 1000)
                     
                     for page in paginas:
-                        src = page.get('src')
-                        if src:
-                            full_url = f"{self.cdn_base}/scans/{scan_id}/obras/{obra_id}/capitulos/{cap_numero}/{src}?_t={timestamp}"
-                            pages_list.append(full_url)
+                        path = page.get('path', '')
+                        src = page.get('src', '')
+                        
+                        # se path termina com extensão de imagem, é o caminho completo (formato novo)
+                        if path and (path.endswith('.jpg') or path.endswith('.png') or path.endswith('.webp')):
+                            full_url = f"{self.cdn_base}/{path}?_t={timestamp}"
+                        # se src contém hash (formato antigo com WP-manga)
+                        elif src and '/' in src and len(src.split('/')) >= 2:
+                            # src formato: /hash/arquivo.jpg -> wp-content/uploads/WP-manga/data/hash/arquivo
+                            src_clean = src.lstrip('/')
+                            full_url = f"{self.cdn_base}/wp-content/uploads/WP-manga/data/{src_clean}?_t={timestamp}"
+                        # se path é só o diretório, concatenar com src
+                        elif path and src:
+                            src_clean = src.lstrip('/')
+                            full_url = f"{self.cdn_base}/{path}{src_clean}?_t={timestamp}"
+                        # construir URL manualmente
+                        elif src:
+                            src_clean = src.lstrip('/')
+                            full_url = f"{self.cdn_base}/scans/{scan_id}/obras/{obra_id}/capitulos/{cap_numero}/{src_clean}?_t={timestamp}"
+                        else:
+                            continue
+                        
+                        pages_list.append(full_url)
                     
                     print(f"[{self.name}] Encontradas {len(pages_list)} paginas")
                 else:
@@ -251,6 +276,9 @@ class SussyToonsProvider(Base):
         effective_headers.setdefault('Origin', self.web_base)
         effective_headers.setdefault('Accept', 'image/avif,image/webp,image/apng,image/*,*/*;q=0.8')
         effective_headers.setdefault('User-Agent', 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36')
+        
+        if self.access_token:
+            effective_headers.setdefault('Authorization', f'Bearer {self.access_token}')
         
         return DownloadUseCase().execute(
             pages=pages,

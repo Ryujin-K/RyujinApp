@@ -73,3 +73,31 @@ def delete_login(domain: str) -> None:
     cursor.execute('DELETE FROM login WHERE domain = ?', (domain,))
     conn.commit()
     conn.close()
+
+def refresh_login_headers(domain: str, new_headers: dict) -> bool:
+
+    existing = get_login(domain)
+    if existing is None:
+        return False
+    
+    merged_headers = {**existing.headers, **new_headers}
+    
+    if merged_headers != existing.headers:
+        update_login(domain, headers=merged_headers)
+        return True
+    return False
+
+def ensure_login_headers(domain: str, required_headers: dict) -> None:
+
+    existing = get_login(domain)
+    if existing is None:
+        return
+    
+    missing = False
+    for key, value in required_headers.items():
+        if key not in existing.headers:
+            missing = True
+            break
+    
+    if missing:
+        refresh_login_headers(domain, required_headers)

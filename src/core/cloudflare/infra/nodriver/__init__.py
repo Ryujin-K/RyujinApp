@@ -1,3 +1,5 @@
+import os
+import sys
 import base64
 import tldextract
 import nodriver as uc
@@ -63,8 +65,13 @@ class Cloudflare(BypassRepository):
         cookies={}
         async def get_cloudflare_cookie():
             nonlocal headers, cookies
+            # Adiciona --no-sandbox em sistemas Linux para evitar problemas com root
+            browser_args = []
+            if sys.platform.startswith('linux'):
+                browser_args.append('--no-sandbox')
             browser = await uc.start(
                 browser_executable_path=find_chrome_executable(),
+                browser_args=browser_args if browser_args else None,
             )
             page = await browser.get(url)
             agent = await page.evaluate('navigator.userAgent')
@@ -90,8 +97,13 @@ class Cloudflare(BypassRepository):
             cloudflare = False
             extract = tldextract.extract(url)
             onlydomain = f"{extract.domain}.{extract.suffix}"
+            # Adiciona --no-sandbox em sistemas Linux para evitar problemas com root
+            browser_args = []
+            if sys.platform.startswith('linux'):
+                browser_args.append('--no-sandbox')
             browser = await uc.start(
-                browser_executable_path=None
+                browser_executable_path=None,
+                browser_args=browser_args if browser_args else None,
             )
             page = await browser.get(url)
             request_data = get_request(onlydomain)
@@ -135,9 +147,14 @@ class Cloudflare(BypassRepository):
             cloudflare = False
             extract = tldextract.extract(domain)
             onlydomain = f"{extract.domain}.{extract.suffix}"
+            # Adiciona --no-sandbox em sistemas Linux para evitar problemas com root
+            browser_args = []
+            if sys.platform.startswith('linux'):
+                browser_args.append('--no-sandbox')
             browser = await uc.start(
                 browser_executable_path=None,
-                headless=background
+                headless=background,
+                browser_args=browser_args if browser_args else None,
             )
             page = await browser.get(domain)
             request_data = get_request(onlydomain)
@@ -198,9 +215,14 @@ class Cloudflare(BypassRepository):
             cloudflare = False
             extract = tldextract.extract(domain)
             onlydomain = f"{extract.domain}.{extract.suffix}"
+            # Adiciona --no-sandbox em sistemas Linux para evitar problemas com root
+            browser_args = []
+            if sys.platform.startswith('linux'):
+                browser_args.append('--no-sandbox')
             browser = await uc.start(
                 browser_executable_path=None,
-                headless=background
+                headless=background,
+                browser_args=browser_args if browser_args else None,
             )
             page = await browser.get(domain)
             request_data = get_request(onlydomain)

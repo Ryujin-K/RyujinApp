@@ -5,10 +5,10 @@ from core.providers.infra.template.wordpress_madara import WordPressMadara
 class FlowerMangasProvider(WordPressMadara):
     name = 'Flower mangas'
     lang = 'pt-Br'
-    domain = ['flowermangas.com', 'flowermanga.net']
+    domain = ['flowermangas.com', 'flowermangas.net']
 
     def __init__(self):
-        self.url = 'https://flowermangas.com'
+        self.url = 'https://flowermangas.net'
 
         self.path = ''
         
@@ -19,7 +19,7 @@ class FlowerMangasProvider(WordPressMadara):
         self.query_title_for_uri = 'head meta[property="og:title"]'
         self.query_placeholder = '[id^="manga-chapters-holder"][data-id]'
 
-        self.headers = {'Referer': 'https://flowermanga.net/'}
+        self.headers = {'Referer': 'https://flowermangas.net/'}
 
     
     def download(self, pages: Pages, fn: any, headers=None, cookies=None):

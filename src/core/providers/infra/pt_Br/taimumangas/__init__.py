@@ -1,4 +1,5 @@
 import json
+import re
 from typing import List, Optional, Any
 from urllib.parse import urljoin
 from bs4 import BeautifulSoup
@@ -6,21 +7,18 @@ from core.__seedwork.infra.http import Http
 from core.providers.infra.template.base import Base
 from core.providers.domain.entities import Chapter, Pages, Manga
 
-class YugenProvider(Base):
-    name = 'Yugen mangas'
+class TaimuMangasProvider(Base):
+    name = 'Taimu Mangas'
     lang = 'pt-Br'
     domain = [
-        'yugenmangasbr.dxtg.online',
-        'yugenmangasbr.yocat.xyz',
+        'taimumangas.rzword.xyz',
     ]
 
     def __init__(self) -> None:
-        self.url = 'https://yugenmangasbr.dxtg.online'
-        self.cdn = 'https://api.yugenweb.com/media/'
+        self.url = 'https://taimumangas.rzword.xyz'
+        self.cdn = 'https://api.taimumangas.com/media/'
         self.get_title = 'h1'
-        self.get_chapters_list = 'div.grid.gap-2'
         self.chapter = 'a[href^="/reader/"]'
-        self.get_chapter_number = 'p.font-semibold'
 
     def _extract_json_block(self, source: str, marker: str, opener: str, closer: str) -> Optional[Any]:
         idx = source.find(marker)
@@ -72,14 +70,18 @@ class YugenProvider(Base):
     def getManga(self, link: str) -> Manga:
         response = Http.get(link)
         soup = BeautifulSoup(response.content, 'html.parser')
-        title = soup.select_one(self.get_title)
-        return Manga(link, title.get_text().strip().replace('\n', ' '))
+        title_el = soup.select_one(self.get_title)
+        if title_el and title_el.get_text(strip=True):
+            title = title_el.get_text().strip().replace('\n', ' ')
+        else:
+            title = (soup.title.get_text().strip() if soup.title else self.name)
+        return Manga(link, title)
     
     def getChapters(self, id: str) -> List[Chapter]:
-        all_chapters = []
+        all_chapters: List[Chapter] = []
         page = 1
-        title = None
-        
+        title: Optional[str] = None
+
         seen_codes = set()
 
         while True:
@@ -89,12 +91,11 @@ class YugenProvider(Base):
 
             if page == 1:
                 soup = BeautifulSoup(response.content, 'html.parser')
-                title_element = soup.select_one(self.get_title)
-                if title_element:
-                    title = title_element.get_text().strip().replace('\n', ' ')
+                title_el = soup.select_one(self.get_title)
+                title = title_el.get_text().strip().replace('\n', ' ') if title_el else self.name
 
             data = self._extract_json_block(html, '\\"chapters\\":{', '{', '}')
-            if not data:
+            if not isinstance(data, dict):
                 break
 
             chapters = data.get('chapters') or []
@@ -110,7 +111,7 @@ class YugenProvider(Base):
                 seen_codes.add(code)
                 link = urljoin(self.url, f"/reader/{code}")
                 number_str = str(number) if number is not None else ''
-                base_title = title or chapter.get('title') or self.name
+                base_title = title or self.name
 
                 all_chapters.append(Chapter(link, number_str, base_title))
 
@@ -118,7 +119,12 @@ class YugenProvider(Base):
                 break
 
             page += 1
-        
+
+        def chapter_sort_key(chapter: Chapter) -> float:
+            match = re.search(r'(\d+(?:\.\d+)?)', str(chapter.number))
+            return float(match.group(1)) if match else 0.0
+
+        all_chapters.sort(key=chapter_sort_key)
         return all_chapters
 
     def getPages(self, ch: Chapter) -> Pages:
